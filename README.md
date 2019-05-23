@@ -21,6 +21,11 @@ Enter a scenario filename to run a test, or 'done' to exit:
 ```
 Enter the path to a test file as specified below (and at the top of src/test_scenario_runner_node.py).
 
+Alternatively, a suite of scenarios, described by a file ```sample.suite``` containing filenames of each included test, one per line, can be run in sequence:
+```
+cat sample.suite | rosrun test_scenario_runner test_scenario_runner_node.py 
+```
+
 ### Test File Specification
 Test file specification format is any number of lines containing one of the following:
 ```
@@ -32,7 +37,7 @@ map_file <path to grid-world-style file>
 
 ### Notes
 Maps and obstacles are optional. Only the last map declared will be used. \
-Maps are not yet supported. \
+Maps are not yet supported, so file names in test files will be ignored for now. \
 Files without any point declarations will have no effect. \
 Points represent endpoints to track-lines. The planner will interpolate more points between them. \
 Obstacles will maintain speed and course. Different sizes/shapes are not yet supported. \
