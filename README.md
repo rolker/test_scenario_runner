@@ -23,7 +23,7 @@ Enter the path to a test file as specified below (and at the top of src/test_sce
 
 Alternatively, a suite of scenarios, described by a file ```sample.suite``` containing filenames of each included test, one per line, can be run in sequence:
 ```
-cat sample.suite | rosrun test_scenario_runner test_scenario_runner_node.py 
+rosrun test_scenario_runner test_scenario_runner_node.py < sample.suite
 ```
 
 ### Test File Specification
