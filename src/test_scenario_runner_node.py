@@ -96,7 +96,7 @@ class TestScenarioRunner:
         lines.append([])
         obstacles = []
         map_file = ""
-        time_limit = 3600
+        time_limit = 600
         try:
             with open(filename, "r") as testfile:
                 for line in testfile:
