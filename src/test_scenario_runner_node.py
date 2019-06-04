@@ -190,7 +190,9 @@ if __name__ == '__main__':
                 break
             if filename == "done" or filename == "exit":
                 break
+            elif filename == "." and runner.test_name != "":
+                runner.run_test(runner.test_name)
             else:
                 runner.run_test(filename)
     except rospy.exceptions.ROSInterruptException:
-        pass
+        runner.path_planner_client.cancel_goal()
