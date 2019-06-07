@@ -188,6 +188,7 @@ if __name__ == '__main__':
                 filename = raw_input("Enter a scenario filename to run a test, or 'done' to exit:\n")
             except EOFError:
                 break
+            rospy.sleep(0.1)
             if filename == "done" or filename == "exit":
                 break
             elif filename == "." and runner.test_name != "":
