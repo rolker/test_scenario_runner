@@ -12,27 +12,33 @@ from geographic_visualization_msgs.msg import GeoVizItem, GeoVizPointList
 import actionlib
 import path_planner.msg
 
-# Test file specification format is any number of lines containing one of the following:
-# point <x> <y>
-# end_line
-# obstacle <x> <y> <course over ground (degrees East of North)> <speed (m/s)>
-# time_limit <seconds>
-# map_file <path to grid-world-style file>
-# # Lines starting with "#" (or anything not specified above, actually) will be ignored
-
-# Maps and obstacles are optional. Only the last map declared will be used.
-# Files without any point declarations will have no effect.
-# Points represent endpoints to track-lines. The planner will interpolate more points between them.
-# The end_line tag tells the test runner to make a new line for any remaining points. This is useful if
-# you need to have multiple track-lines in a single test
-# Obstacles will maintain speed and course. Different sizes/shapes are not yet supported.
-# Obstacle observation time is assumed to be the time the test begins.
-# Obstacle course over ground is in degrees because it's easier to type cardinal directions as whole numbers.
-# Tests will be terminated after time_limit seconds have elapsed. The default time limit is one hour.
-# Like the map_file, only the last time limit declared will be used.
-
 
 class TestScenarioRunner:
+    """Class to run test scenarios for the path planner.
+    Scenarios are specified by file names read from stdin.
+    The test file specification format is any number of lines containing one of the following:
+    point <x> <y>
+    end_line
+    obstacle <x> <y> <course over ground (degrees East of North)> <speed (m/s)>
+    time_limit <seconds>
+    map_file <path to grid-world-style file>
+    # Lines starting with "#" (or anything not specified above, actually) will be ignored
+
+    Maps and obstacles are optional. Only the last map declared will be used.
+    Files without any point declarations will have no effect.
+    Points represent endpoints to track-lines. The planner will interpolate more points between them.
+    The end_line tag tells the test runner to make a new line for any remaining points. This is useful if
+    you need to have multiple track-lines in a single test
+    Obstacles will maintain speed and course. Different sizes/shapes are not yet supported.
+    Obstacle observation time is assumed to be the time the test begins.
+    Obstacle course over ground is in degrees because it's easier to type cardinal directions as whole numbers.
+    Tests will be terminated after time_limit seconds have elapsed. The default time limit is 3600s.
+    Like the map_file, only the last time limit declared will be used.
+    Maps are not yet supported, so specifying map files will do nothing.
+
+    Run the node using rosrun and enter test file names when prompted, or redirect in a suite of tests from a file,
+    with one file name per line.
+    """
     def __init__(self):
         self.test_running = False
         self.test_name = ""
