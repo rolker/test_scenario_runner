@@ -102,6 +102,7 @@ class TestScenarioRunner:
         lines.append([])
         obstacles = []
         map_file = ""
+        period = None
         time_limit = 600
         try:
             with open(filename, "r") as testfile:
@@ -114,10 +115,17 @@ class TestScenarioRunner:
                         lines.append([])
                     elif line.startswith("obstacle"):
                         obstacles.append([float(f) for f in line.split(" ")[1:]])
+                        if period is not None:
+                            obstacles[-1].append(period)
                     elif line.startswith("time_limit"):
                         time_limit = float(line[10:])
                     elif line.startswith("map_file"):
                         map_file = line[8:].strip()
+                    elif line.startswith("period"):
+                        if line[6:] == "-1":
+                            period = None
+                        else:
+                            period = float(line[6:])
         except IOError as err:
             print ("Couldn't find file: " + filename)
             return
