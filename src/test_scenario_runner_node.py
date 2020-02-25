@@ -16,19 +16,18 @@ import path_planner.msg
 class TestScenarioRunner:
     """Class to run test scenarios for the path planner.
     Scenarios are specified by file names read from stdin.
+    Coordinates and speeds are in map coordinates, typically meters.
     The test file specification format is any number of lines containing one of the following:
-    point <x> <y>
-    end_line
-    obstacle <x> <y> <course over ground (degrees East of North)> <speed (m/s)>
+    line <x1> <y1> <x2> <y2>
+    start <x> <y> <heading (degrees East of North)> <speed>
+    obstacle <x> <y> <course over ground (degrees East of North)> <speed>
     time_limit <seconds>
     map_file <path to grid-world-style file>
     # Lines starting with "#" (or anything not specified above, actually) will be ignored
 
     Maps and obstacles are optional. Only the last map declared will be used.
-    Files without any point declarations will have no effect.
-    Points represent endpoints to track-lines. The planner will interpolate more points between them.
-    The end_line tag tells the test runner to make a new line for any remaining points. This is useful if
-    you need to have multiple track-lines in a single test
+    Files without any line declarations will have no effect.
+    Lines represent survey lines.
     Obstacles will maintain speed and course. Different sizes/shapes are not yet supported.
     Obstacle observation time is assumed to be the time the test begins.
     Obstacle course over ground is in degrees because it's easier to type cardinal directions as whole numbers.
@@ -37,7 +36,7 @@ class TestScenarioRunner:
     Maps are not yet supported, so specifying map files will do nothing.
 
     Run the node using rosrun and enter test file names when prompted, or redirect in a suite of tests from a file,
-    with one file name per line.
+    with one file name per line. Entering "." the line following a valid test file name will re-run the previous test.
     """
     def __init__(self):
         self.test_running = False
@@ -45,7 +44,8 @@ class TestScenarioRunner:
         self.start_time = self.end_time = 0
         rospy.init_node('test_scenario_runner')
         self.reset_publisher = rospy.Publisher('/sim_reset', Bool, queue_size=5, latch=True)
-        self.send_command_publisher = rospy.Publisher('/send_command', String, queue_size=5, latch=True)
+        self.piloting_mode_publisher = rospy.Publisher('/project11/piloting_mode', String, queue_size=5, latch=True)
+        # self.send_command_publisher = rospy.Publisher('/send_command', String, queue_size=5, latch=True)
         self.contact_publisher = rospy.Publisher('/contact', Contact, queue_size=5)
         self.display_publisher = rospy.Publisher('/project11/display', GeoVizItem, queue_size=10, latch=True)
 
@@ -58,6 +58,13 @@ class TestScenarioRunner:
         ps.point.x = x
         ps.point.y = y
         return self.map_to_lat_long(ps).wgs84.position
+
+    def convert_line(self, line):
+        print("Converting line", line)
+        assert len(line) == 4
+        p1 = self.convert_point(line[0], line[1])
+        p2 = self.convert_point(line[2], line[3])
+        return [p1, p2]
 
     def done_callback(self, status, result):
         self.test_running = False
@@ -99,20 +106,22 @@ class TestScenarioRunner:
     def run_test(self, filename):
         lines = []
         index = 0
-        lines.append([])
         obstacles = []
         map_file = ""
+        start = []
         period = None
         time_limit = 600
         try:
             with open(filename, "r") as testfile:
                 for line in testfile:
                     line = line.strip()
-                    if line.startswith("point"):
-                        lines[index].append([float(f) for f in line.split(" ")[1:]])
-                    elif line.startswith("end_line"):
-                        index += 1
-                        lines.append([])
+                    if line.startswith("line"):
+                        lines.append([float(f) for f in line.split(" ")[1:]])
+                        print("Read line ", lines[-1])
+                        assert len(lines[-1]) == 4  # should be startX startY endX endY
+                    elif line.startswith("start"):
+                        start = [float(f) for f in line.split(" ")[1:]]
+                        # assert len(start) == 4  # x y heading speed # assume speed is zero?
                     elif line.startswith("obstacle"):
                         obstacles.append([float(f) for f in line.split(" ")[1:]])
                         if period is not None:
@@ -130,7 +139,8 @@ class TestScenarioRunner:
             print ("Couldn't find file: " + filename)
             return
         try:
-            lines = [[self.convert_point(p[0], p[1]) for p in points] for points in lines]
+            # Convert to lat long
+            lines = [self.convert_line(line) for line in lines]
         except rospy.ServiceException as exc:
             print("Map to LatLong service did not process request: " + str(exc))
 
@@ -141,8 +151,10 @@ class TestScenarioRunner:
             print ("Simulation does not appear to be running yet. Exiting.")
             return
 
-        self.send_command_publisher.publish("helm_mode autonomous")
+        # self.send_command_publisher.publish("helm_mode autonomous")
+        self.piloting_mode_publisher.publish("autonomous")
         self.reset_publisher.publish(True)
+        rospy.sleep(0.1)  # Let simulator reset
         self.test_name = filename
 
         self.start_time = rospy.get_time()
@@ -150,10 +162,7 @@ class TestScenarioRunner:
 
         display_item = None
 
-        for points in lines:
-            if not points:  # no points specified
-                continue
-
+        for line in lines:
             if self.end_time < rospy.get_time():
                 return
 
@@ -170,12 +179,12 @@ class TestScenarioRunner:
             display_points.color.r = 1.0
             display_points.color.a = 1.0
             display_points.size = 5.0
-            for p in points:
+            for p in line:
                 pose = GeoPoseStamped()
                 pose.pose.position = p
                 goal.path.poses.append(pose)
                 display_points.points.append(p)
-            # TODO! -- goal.speed?
+            # TODO! -- goal.speed?  # ?? this might not be relevant anymore
             display_item.lines.append(display_points)
             self.display_publisher.publish(display_item)
             self.test_running = True
@@ -191,6 +200,7 @@ class TestScenarioRunner:
         if display_item:
             display_item.lines = []
             self.display_publisher.publish(display_item)
+        self.piloting_mode_publisher.publish("standby")
 
 
 if __name__ == '__main__':
