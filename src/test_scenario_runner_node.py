@@ -4,11 +4,12 @@ import math
 import rospy
 from std_msgs.msg import Bool, String, Header
 # from std_msgs.msg import String
-from marine_msgs.msg import Contact
+from marine_msgs.msg import Contact, NavEulerStamped
 from geometry_msgs.msg import PointStamped
-from geographic_msgs.msg import GeoPoseStamped
+from geographic_msgs.msg import GeoPoseStamped, GeoPointStamped
 from project11_transformations.srv import MapToLatLong
 from geographic_visualization_msgs.msg import GeoVizItem, GeoVizPointList
+from asv_sim.srv import SetPose
 import actionlib
 import path_planner.msg
 
@@ -50,6 +51,7 @@ class TestScenarioRunner:
         self.display_publisher = rospy.Publisher('/project11/display', GeoVizItem, queue_size=10, latch=True)
 
         self.map_to_lat_long = rospy.ServiceProxy('map_to_wgs84', MapToLatLong)  # TODO! -- is this right?
+        self.set_pose = rospy.ServiceProxy('set_pose', SetPose)
 
         self.path_planner_client = actionlib.SimpleActionClient('path_planner_action', path_planner.msg.path_plannerAction)
 
@@ -151,9 +153,19 @@ class TestScenarioRunner:
             print ("Simulation does not appear to be running yet. Exiting.")
             return
 
-        # self.send_command_publisher.publish("helm_mode autonomous")
         self.piloting_mode_publisher.publish("autonomous")
-        self.reset_publisher.publish(True)
+
+        # Set up set_pose request
+        if start:
+            gps = GeoPointStamped()
+            gps.position = self.convert_point(start[0], start[1])
+            h = NavEulerStamped()
+            h.orientation.heading = start[2]
+            self.set_pose(gps, h)
+        else:
+            print ("Warning: no start state read; using default start state")
+            self.reset_publisher.publish(True)
+
         rospy.sleep(0.1)  # Let simulator reset
         self.test_name = filename
 
