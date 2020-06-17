@@ -166,7 +166,7 @@ class TestScenarioRunner:
             print ("Warning: no start state read; using default start state")
             self.reset_publisher.publish(True)
 
-        rospy.sleep(0.1)  # Let simulator reset
+        rospy.sleep(0.2)  # Let simulator reset
         self.test_name = filename
 
         self.start_time = rospy.get_time()
