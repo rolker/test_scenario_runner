@@ -1,0 +1,6 @@
+line 40 85 60 85
+obstacle 50 20 0 0.5
+obstacle 60 20 0 3
+start 70 5 0
+map_file cannon_cut_across.map
+

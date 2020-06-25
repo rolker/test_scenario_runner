@@ -1,0 +1,4 @@
+line 40 85 70 85
+obstacle 20 40 0 3
+start 20 10 0
+map_file cannon_go_around.map
