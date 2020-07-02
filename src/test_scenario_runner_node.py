@@ -10,7 +10,7 @@ from marine_msgs.msg import Contact, NavEulerStamped
 from geometry_msgs.msg import PointStamped
 from geographic_msgs.msg import GeoPoseStamped, GeoPointStamped
 from project11_transformations.srv import MapToLatLong
-from geographic_visualization_msgs.msg import GeoVizItem, GeoVizPointList
+from geographic_visualization_msgs.msg import GeoVizItem, GeoVizPointList, GeoVizPolygon, GeoVizSimplePolygon
 from asv_sim.srv import SetPose
 import actionlib
 import path_planner.msg
@@ -71,7 +71,7 @@ class TestScenarioRunner:
         self.default_planner_config = {
             "non_coverage_turning_radius": 8.0,
             "coverage_turning_radius": 100.0,
-            "max_speed": 2.5,
+            "max_speed": 2.0,
             "line_width": 2.0,
             "branching_factor": 9,
             "time_horizon": 30.0,
@@ -89,12 +89,12 @@ class TestScenarioRunner:
             "distance_weight": 1.0,
             "heading_weight": 20.0,
             "speed_weight": 5.0,
-            "achievable_threshold": 15.0,
-            "current_estimation": False,
+            "achievable_threshold": 20.0,
+            "current_estimation": True,
         }
         self.default_sim_config = {
-            "current_speed": 0.0,
-            "current_direction": 0.0,
+            "current_speed": 0.5,
+            "current_direction": 90.0,
             "jitter_thrust": 0.1,
             "jitter_rudder": 0.25,
             "jitter_drag": 0.1,
@@ -135,14 +135,6 @@ class TestScenarioRunner:
     def publish_obstacles(self, obstacles):
         for i in range(len(obstacles)):
             obs = obstacles[i]
-            contact = Contact()
-            contact.position = self.convert_point(obs[0], obs[1])
-            contact.cog = contact.heading = obs[2]
-            contact.sog = obs[3]
-            contact.mmsi = i
-            contact.header = Header()
-            contact.header.stamp = rospy.Time.now()
-            self.contact_publisher.publish(contact)
 
             # Advance obstacle along its course
             d = (rospy.get_time() - obs[4]) * obs[3]
@@ -151,6 +143,16 @@ class TestScenarioRunner:
             obs[0] += dx
             obs[1] += dy
             obs[4] = rospy.get_time()
+
+            # publish as a contact
+            contact = Contact()
+            contact.position = self.convert_point(obs[0], obs[1])
+            contact.cog = contact.heading = obs[2]
+            contact.sog = obs[3]
+            contact.mmsi = i
+            contact.header = Header()
+            contact.header.stamp = rospy.Time.now()
+            self.contact_publisher.publish(contact)
 
     def load_parameters(self, parameter_file_names):
         planner_config = self.default_planner_config
@@ -183,6 +185,20 @@ class TestScenarioRunner:
                 print("Default parameters updated.")
         except IOError as err:
             print ("Couldn't find default configuration file: " + parameter_file_name)
+
+    def update_single_default_parameter(self, line):
+        try:
+            name, value = line.split(' ')
+            for parameters in [self.default_planner_config,
+                               self.default_mpc_config,
+                               self.default_sim_config]:
+                if name in parameters:
+                    parameters[name] = type(parameters[name])(value)
+                    print ("Parameter " + name + " updated.")
+                    return True
+            return False
+        except ValueError:
+            return False
 
     def run_test(self, filename):
         lines = []
@@ -290,7 +306,7 @@ class TestScenarioRunner:
                 pose.pose.position = p
                 goal.path.poses.append(pose)
                 display_points.points.append(p)
-            # TODO! -- goal.speed?  # ?? this might not be relevant anymore
+            # TODO! -- goal.speed?
             display_item.lines.append(display_points)
             self.display_publisher.publish(display_item)
             self.test_running = True
@@ -325,6 +341,8 @@ if __name__ == '__main__':
                 runner.run_test(runner.test_name)
             elif filename.endswith(".scenario_config"):
                 runner.update_default_parameters(filename)
+            elif runner.update_single_default_parameter(filename):
+                pass  # don't do anything because the parameter was updated
             else:
                 runner.run_test(filename)
     except rospy.exceptions.ROSInterruptException:
