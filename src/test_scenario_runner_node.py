@@ -76,12 +76,14 @@ class TestScenarioRunner:
             "branching_factor": 9,
             "time_horizon": 30.0,
             "time_minimum": 5.0,
-            "collision_checking_increment": 0.2,
+            "collision_checking_increment": 0.05,
             "initial_samples": 100,
             "use_brown_paths": True,
             "dump_visualization": False,
             "visualization_file": "/tmp/planner_scenario_visualization",
             "heuristic": 0,
+            "dynamic_obstacles": 0,
+            "ignore_dynamic_obstacles": False,
         }
         self.default_mpc_config = {
             "rudder_granularity": 0.0625,
