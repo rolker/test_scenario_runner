@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 import math
 import os
-
+from datetime import datetime
+import pickle
 import rospy
 import dynamic_reconfigure.client
 from std_msgs.msg import Bool, String, Header
@@ -14,6 +15,7 @@ from geographic_visualization_msgs.msg import GeoVizItem, GeoVizPointList, GeoVi
 from asv_sim.srv import SetPose
 import actionlib
 import path_planner.msg
+from path_planner_common.msg import Stats, TaskLevelStats
 
 
 class TestScenarioRunner:
@@ -58,6 +60,10 @@ class TestScenarioRunner:
         self.contact_publisher = rospy.Publisher('/contact', Contact, queue_size=5)
         self.display_publisher = rospy.Publisher('/project11/display', GeoVizItem, queue_size=10, latch=True)
 
+        self.stats_subscriber = rospy.Subscriber('/path_planner/stats', Stats, self.stats_callback)
+        self.task_level_stats_subscriber = rospy.Subscriber('/path_planner/task_level_stats', TaskLevelStats,
+                                                            self.task_level_stats_callback)
+
         self.map_to_lat_long = rospy.ServiceProxy('map_to_wgs84', MapToLatLong)
         self.set_pose = rospy.ServiceProxy('set_pose', SetPose)
 
@@ -67,6 +73,21 @@ class TestScenarioRunner:
         self.path_planner_parameter_client = dynamic_reconfigure.client.Client("path_planner", timeout=10)
         self.mpc_parameter_client = dynamic_reconfigure.client.Client("mpc", timeout=10)
         self.asv_sim_parameter_client = dynamic_reconfigure.client.Client("asv_sim_node", timeout=10)
+
+        # recording stats
+        self.stats = {
+            "samples_counts": [],
+            "generated_counts": [],
+            "expanded_counts": [],
+            "iterations_counts": [],
+            "f_values": [],
+            "plan_depths": [],
+            "collision_penalties": [],
+            "cpu_times": [],
+            "total_time_from_planner": -1,
+            "cumulative_collision_penalty": 0,
+            "score": 0,
+        }
 
         self.default_planner_config = {
             "non_coverage_turning_radius": 8.0,
@@ -104,6 +125,10 @@ class TestScenarioRunner:
             "jitter_current_direction": 0.25,
         }
 
+        self.planner_config = self.default_planner_config
+        self.mpc_config = self.default_mpc_config
+        self.sim_config = self.default_sim_config
+
     def convert_point(self, x, y):
         ps = PointStamped()
         ps.point.x = x
@@ -125,6 +150,48 @@ class TestScenarioRunner:
 
     def feedback_callback(self, msg):
         pass
+
+    def stats_callback(self, msg):
+        self.stats["samples_counts"].append(msg.samples)
+        self.stats["generated_counts"].append(msg.generated)
+        self.stats["expanded_counts"].append(msg.expanded)
+        self.stats["iterations_counts"].append(msg.iterations)
+        self.stats["f_values"].append(msg.plan_f_value)
+        self.stats["plan_depths"].append(msg.plan_depth)
+        self.stats["collision_penalties"].append(msg.collision_penalty)
+        self.stats["cpu_times"].append(msg.cpu_time)
+
+    def task_level_stats_callback(self, msg):
+        self.stats["total_time_from_planner"] = msg.time
+        self.stats["cumulative_collision_penalty"] = msg.collision_penalty
+        self.stats["score"] = msg.score
+
+    def reset_stats(self):
+        self.stats = {
+            "samples_counts": [],
+            "generated_counts": [],
+            "expanded_counts": [],
+            "iterations_counts": [],
+            "f_values": [],
+            "plan_depths": [],
+            "collision_penalties": [],
+            "cpu_times": [],
+            "total_time_from_planner": -1,
+            "cumulative_collision_penalty": 0,
+            "score": 0,
+        }
+
+    def write_results(self, path):
+        # write config
+        with open(path + "/planner_config.pickle", "wb") as results_file:
+            pickle.dump(self.planner_config, results_file)
+        with open(path + "/mpc_config.pickle", "wb") as results_file:
+            pickle.dump(self.mpc_config, results_file)
+        with open(path + "/sim_config.pickle", "wb") as results_file:
+            pickle.dump(self.sim_config, results_file)
+        # write stats
+        with open(path + "/stats.pickle", "wb") as results_file:
+            pickle.dump(self.stats, results_file)
 
     def spin_until_done(self, obstacles):
         while self.test_running:
@@ -157,22 +224,22 @@ class TestScenarioRunner:
             self.contact_publisher.publish(contact)
 
     def load_parameters(self, parameter_file_names):
-        planner_config = self.default_planner_config
-        mpc_config = self.default_mpc_config
-        sim_config = self.default_sim_config
+        self.planner_config = self.default_planner_config
+        self.mpc_config = self.default_mpc_config
+        self.sim_config = self.default_sim_config
         for parameter_file_name in parameter_file_names:
             try:
                 with open(parameter_file_name, "r") as parameter_file:
                     for line in parameter_file:
                         name, value = line.split(' ')
-                        for parameters in [planner_config, mpc_config, sim_config]:
+                        for parameters in [self.planner_config, self.mpc_config, self.sim_config]:
                             if name in parameters:
                                 parameters[name] = type(parameters[name])(value)
             except IOError as err:
                 print ("Couldn't find default configuration file: " + parameter_file_name)
-        self.path_planner_parameter_client.update_configuration(planner_config)
-        self.mpc_parameter_client.update_configuration(mpc_config)
-        self.asv_sim_parameter_client.update_configuration(sim_config)
+        self.path_planner_parameter_client.update_configuration(self.planner_config)
+        self.mpc_parameter_client.update_configuration(self.mpc_config)
+        self.asv_sim_parameter_client.update_configuration(self.sim_config)
 
     def update_default_parameters(self, parameter_file_name):
         try:
@@ -310,6 +377,7 @@ class TestScenarioRunner:
                 display_points.points.append(p)
             # TODO! -- goal.speed?
             display_item.lines.append(display_points)
+            # TODO! -- send all lines at once, waiting until MM does it so I know the format
             self.display_publisher.publish(display_item)
             self.test_running = True
 
@@ -326,6 +394,39 @@ class TestScenarioRunner:
             self.display_publisher.publish(display_item)
         self.piloting_mode_publisher.publish("standby")
 
+        # reporting
+        now = datetime.now()
+        results_dir_path = "../results/" + now.strftime("%Y_%m_%d/%H:%M:%S_" + self.test_name)
+        if not os.path.exists(results_dir_path):
+            os.makedirs(results_dir_path)
+
+        self.write_results(results_dir_path)
+
+        self.reset_stats()
+
+
+def run(input_text):
+    if input_text == "done" or input_text == "exit":
+        return False
+    elif input_text == "." and runner.test_name != "":
+        runner.run_test(runner.test_name)
+    elif input_text.endswith(".scenario_config"):
+        runner.update_default_parameters(input_text)
+    elif runner.update_single_default_parameter(input_text):
+        pass  # don't do anything because the parameter was updated
+    elif input_text.endswith(".suite"):
+        try:
+            with open(input_text, "r") as suite_file:
+                lines = [line for line in suite_file]
+            for line in lines:
+                # recur on a suite file
+                run(line.strip())
+        except IOError as err:
+            print ("Couldn't find suite file: " + input_text)
+    else:
+        runner.run_test(input_text)
+    return True
+
 
 if __name__ == '__main__':
     runner = TestScenarioRunner()
@@ -337,15 +438,7 @@ if __name__ == '__main__':
             except EOFError:
                 break
             rospy.sleep(0.1)
-            if filename == "done" or filename == "exit":
+            if not run(filename):
                 break
-            elif filename == "." and runner.test_name != "":
-                runner.run_test(runner.test_name)
-            elif filename.endswith(".scenario_config"):
-                runner.update_default_parameters(filename)
-            elif runner.update_single_default_parameter(filename):
-                pass  # don't do anything because the parameter was updated
-            else:
-                runner.run_test(filename)
     except rospy.exceptions.ROSInterruptException:
         runner.path_planner_client.cancel_goal()
