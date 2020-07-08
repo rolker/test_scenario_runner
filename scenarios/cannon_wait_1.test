@@ -1,4 +1,4 @@
-line 45 85 45 60
-obstacle 45 85 180 3
+line 35 85 35 60
+obstacle 35 85 180 2 25 40
 start 45 10 0
 map_file cannon_wait_1.map

@@ -33,27 +33,29 @@ def load_all_results(path_to_results_dir, day_filters=None, day_not_filters=None
         for f in day_not_filters:
             day_names = [d for d in day_names if f not in d]
 
-    tests = []
+    test_folders = []
     test_names = []
+    full_test_names = []
     for day in day_names:
         p = next(os.walk(os.path.join(days[0], day)))
         for test in p[1]:
             # TODO! -- apply test filters
-            tests.append(os.path.join(p[0], test))
+            test_folders.append(os.path.join(p[0], test))
             test_names.append(test[9:-5])
+            full_test_names.append(test)
 
     # tests = next(days)
-    test_folders = tests
     # test_names = tests[1]
     config = [load_config(p) for p in test_folders]
     stats = [load_stats(p) for p in test_folders]
     everything = [{
         "name": x[0],
+        "path": x[3],
         "planner_config": x[1][0],
         "mpc_config": x[1][1],
         "sim_config": x[1][2],
         "stats": x[2],
-    } for x in zip(test_names, config, stats)]
+    } for x in zip(test_names, config, stats, test_folders)]
 
     return everything
 
@@ -63,7 +65,7 @@ if __name__ == "__main__":
     results = load_all_results("../results/")
     print len(results)
     for result in results:
-        print result["name"]
+        print result["name"], result["path"]
     print ("+++++++++++++++++++++++++++++++++++++")
     results = load_all_results("../results", day_filters=["2020_07_07"])
     print len(results)

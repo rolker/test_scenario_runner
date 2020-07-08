@@ -1,6 +1,7 @@
 non_coverage_turning_radius 8.0
 coverage_turning_radius 100.0
 max_speed 2.0
+slow_speed 1.0
 line_width 2.0
 branching_factor 9
 time_horizon 30.0

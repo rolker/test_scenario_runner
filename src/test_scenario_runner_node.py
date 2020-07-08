@@ -93,6 +93,7 @@ class TestScenarioRunner:
             "non_coverage_turning_radius": 8.0,
             "coverage_turning_radius": 100.0,
             "max_speed": 2.0,
+            "slow_speed": 1.0,
             "line_width": 2.0,
             "branching_factor": 9,
             "time_horizon": 30.0,
@@ -206,12 +207,12 @@ class TestScenarioRunner:
             obs = obstacles[i]
 
             # Advance obstacle along its course
-            d = (rospy.get_time() - obs[4]) * obs[3]
+            d = (rospy.get_time() - obs[6]) * obs[3]
             dx = d * math.sin(obs[2])  # swapped because it's east of north
             dy = d * math.cos(obs[2])
             obs[0] += dx
             obs[1] += dy
-            obs[4] = rospy.get_time()
+            obs[6] = rospy.get_time()
 
             # publish as a contact
             contact = Contact()
@@ -219,6 +220,10 @@ class TestScenarioRunner:
             contact.cog = contact.heading = obs[2]
             contact.sog = obs[3]
             contact.mmsi = i
+            contact.dimension_to_stbd = obs[4] / 2
+            contact.dimension_to_port = obs[4] / 2
+            contact.dimension_to_bow = obs[5] / 2
+            contact.dimension_to_stern = obs[5] / 2
             contact.header = Header()
             contact.header.stamp = rospy.Time.now()
             self.contact_publisher.publish(contact)
@@ -275,7 +280,6 @@ class TestScenarioRunner:
         obstacles = []
         map_file = ""
         start = []
-        period = None
         time_limit = 600
         parameter_file_names = []
         try:
@@ -291,18 +295,15 @@ class TestScenarioRunner:
                         start[2] = math.radians(start[2])
                         # assert len(start) == 4  # x y heading speed # assume speed is zero?
                     elif line.startswith("obstacle"):
-                        obstacles.append([float(f) for f in line.split(" ")[1:]])
-                        if period is not None:
-                            obstacles[-1].append(period)
+                        obs = [float(f) for f in line.split(" ")[1:]]
+                        if len(obs) == 4:
+                            obs.append(5)
+                            obs.append(20)
+                        obstacles.append(obs)
                     elif line.startswith("time_limit"):
                         time_limit = float(line[10:])
                     elif line.startswith("map_file"):
                         map_file = line[8:].strip()
-                    elif line.startswith("period"):
-                        if line[6:] == "-1":
-                            period = None
-                        else:
-                            period = float(line[6:])
                     elif line.startswith("parameter_file"):
                         parameter_file_names.append(line[15:])
         except IOError as err:
