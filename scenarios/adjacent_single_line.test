@@ -1,4 +1,4 @@
-line 30 -50 30 50
+line 70 20 70 120
 time_limit 120
-start 0 0 0 0
+start 40 70 0 0
 map_file empty.map
