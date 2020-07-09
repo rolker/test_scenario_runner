@@ -25,27 +25,35 @@ Alternatively, a suite of scenarios, described by a file ```sample.suite``` cont
 ```
 rosrun test_scenario_runner test_scenario_runner_node.py < sample.suite
 ```
+Entering "." the line following a valid test file name will re-run the previous test.
+File names are all relative paths - it is recommended to run this node in the scenarios directory or your own
+directory containing test scenarios. Entering a file name ending in .scenario_config will update the default
+parameters, which persist between tests and are used for parameters not specified in the test. Entering a file
+name ending in .suite will treat each line in the file as though it were entered through stdin. Suite files can
+contain other suites, so beware of self-referential recursion.
 
 ### Test File Specification
 Test file specification format is any number of lines containing one of the following:
 ```
-point <x> <y>
-end_line
-obstacle <x> <y> <course over ground (degrees East of North)> <speed (m/s)>
+line <x1> <y1> <x2> <y2>
+start <x> <y> <heading (degrees East of North)> <speed>
+obstacle <x> <y> <course over ground (degrees East of North)> <speed> [<width> <length>]
 time_limit <seconds>
 map_file <path to grid-world-style file>
+parameter_file <path to parameter file>
 # Lines starting with "#" (or anything not specified above, actually) will be ignored
 ```
 
 ### Notes
 Maps and obstacles are optional. Only the last map declared will be used. \
-Maps are not yet supported, so they will be ignored for now. \
-Files without any point declarations will have no effect. \
-Points represent endpoints to track-lines. The planner will interpolate more points between them. \
-The end_line tag tells the test runner to make a new line for any remaining points. This is useful if
-you need to have multiple track-lines in a single test. \
-Obstacles will maintain speed and course. Different sizes/shapes are not yet supported. \
-Obstacle observation time is assumed to be the time the test begins. \
-Obstacle course over ground is in degrees because it's easier to type cardinal directions as whole numbers. \
-Tests will be terminated after time_limit seconds have elapsed. The default time limit is ten minutes.
-Like the map_file, only the last time limit declared will be used. 
+Files without any line declarations will have no effect.\
+Lines represent survey lines.\
+Obstacles will maintain speed and course. Width and length are optional - default values will be used if absent.\
+Obstacle observation time is assumed to be the time the test begins.\
+Obstacle course over ground is in degrees because it's easier to type cardinal directions as whole numbers.\
+Tests will be terminated after time_limit seconds have elapsed. The default time limit is 3600s.\
+Like the map_file, only the last time limit declared will be used.\
+Specify a .map file included in the repo or create your own in the same format (first number is resolution).\
+Blank lines at the end of map files are not allowed, as the planner takes the shortest line as the boundary.\
+See default.scenario_config for parameter file example. Later parameter files will override parameters set in
+earlier ones, and missing parameters will use default values.\
