@@ -7,8 +7,8 @@ import rospy
 import rosbag
 import dynamic_reconfigure.client
 from std_msgs.msg import Bool, String, Header
-from marine_msgs.msg import Contact, NavEulerStamped
-from geometry_msgs.msg import PointStamped, TwistStamped, Vector3
+from marine_msgs.msg import Contact, NavEulerStamped, Helm
+from geometry_msgs.msg import PointStamped, TwistStamped, Vector3, PoseStamped
 from geographic_msgs.msg import GeoPoseStamped, GeoPointStamped
 from project11_transformations.srv import MapToLatLong
 from geographic_visualization_msgs.msg import GeoVizItem, GeoVizPointList, GeoVizPolygon, GeoVizSimplePolygon
@@ -16,6 +16,7 @@ from asv_sim.srv import SetPose
 import actionlib
 import path_planner.msg
 from path_planner_common.msg import Stats, TaskLevelStats
+from threading import Lock
 
 
 class TestScenarioRunner:
@@ -58,6 +59,9 @@ class TestScenarioRunner:
         self.test_name = ""
         self.start_time = self.end_time = 0
         self.default_time_limit = 600
+        self.bag = None
+        self.write_bags = True
+        self.bag_lock = Lock()
         rospy.init_node('test_scenario_runner')
         self.reset_publisher = rospy.Publisher('/sim_reset', Bool, queue_size=5, latch=True)
         self.piloting_mode_publisher = rospy.Publisher('/project11/piloting_mode', String, queue_size=5, latch=True)
@@ -69,6 +73,7 @@ class TestScenarioRunner:
         self.task_level_stats_subscriber = rospy.Subscriber('/path_planner/task_level_stats', TaskLevelStats,
                                                             self.task_level_stats_callback)
         # bagging subs
+        # uncomment lines to record more topics (and replace _type with the message type... I'm writing those in lazily)
         topics = [
                  # ["/asv_sim_node/parameter_descriptions", _type],
                  # ["/asv_sim_node/parameter_updates", _type],
@@ -87,9 +92,9 @@ class TestScenarioRunner:
                  # ["/diagnostics", _type],
                  # ["/disturbance_estimate", _type],
                  # ["/flir_engine", _type],
-                 # ["/heading", NavEulerStamped],
+                 ["/heading", NavEulerStamped],
                  # ["/heartbeat", _type],
-                 # ["/helm", _type],
+                 ["/helm", Helm],
                  # ["/hover_action/cancel", _type],
                  # ["/hover_action/feedback", _type],
                  # ["/hover_action/goal", _type],
@@ -106,7 +111,7 @@ class TestScenarioRunner:
                  # ["/mission_manager/smach/container_status", _type],
                  # ["/mission_manager/smach/container_structure", _type],
                  # ["/mission_plan", _type],
-                 # ["/mpc/disturbance_estimate", Vector3],
+                 ["/mpc/disturbance_estimate", Vector3],
                  # ["/mpc/parameter_descriptions", _type],
                  # ["/mpc/parameter_updates", _type],
                  # ["/mpc/reference_trajectory", _type],
@@ -119,15 +124,15 @@ class TestScenarioRunner:
                  # ["/path_follower_action/status", _type],
                  # ["/path_planner/parameter_descriptions", _type],
                  # ["/path_planner/parameter_updates", _type],
-                 # ["/path_planner/stats", _type],
-                 # ["/path_planner/task_level_stats", _type],
+                 ["/path_planner/stats", Stats],
+                 ["/path_planner/task_level_stats", TaskLevelStats],
                  # ["/path_planner_action/cancel", _type],
                  # ["/path_planner_action/feedback", _type],
                  # ["/path_planner_action/goal", _type],
                  # ["/path_planner_action/result", _type],
                  # ["/path_planner_action/status", _type],
-                 # ["/position", GeoPointStamped],
-                 # ["/position_map", _type],
+                 ["/position", GeoPointStamped],
+                 ["/position_map", PoseStamped],
                  # ["/posmv/orientation", _type],
                  # ["/posmv/position", _type],
                  # ["/project11/command", _type],
@@ -147,7 +152,7 @@ class TestScenarioRunner:
                  # ["/rosout_agg", _type],
                  # ["/send_command", _type],
                  # ["/sim_reset", _type],
-                 # ["/sog", TwistStamped],
+                 ["/sog", TwistStamped],
                  # ["/speed_modulation", _type],
                  # ["/survey_area_action/cancel", _type],
                  # ["/survey_area_action/feedback", _type],
@@ -180,7 +185,7 @@ class TestScenarioRunner:
                  # ["/udp/sog", _type],
         ]
         self.bagging_subs = [
-            rospy.Subscriber(topic[0], topic[1], self.get_bagging_callback(topic[0])) for topic in topics
+            rospy.Subscriber(topic[0], topic[1], self.get_bagging_callback(topic[0]), queue_size=10) for topic in topics
         ]
 
         self.map_to_lat_long = rospy.ServiceProxy('map_to_wgs84', MapToLatLong)
@@ -194,28 +199,10 @@ class TestScenarioRunner:
         self.asv_sim_parameter_client = dynamic_reconfigure.client.Client("asv_sim_node", timeout=10)
 
         # recording stats
-
-        self.bag = None
-        self.write_bags = True
-
-        self.stats = {
-            "samples_counts": [],
-            "generated_counts": [],
-            "expanded_counts": [],
-            "iterations_counts": [],
-            "f_values": [],
-            "plan_collision_penalties": [],
-            "plan_time_penalties": [],
-            "plan_h_values": [],
-            "plan_depths": [],
-            "collision_penalties": [],
-            "cpu_times": [],
-            "last_plan_achievables": [],
-            "total_time_from_planner": -1,
-            "cumulative_collision_penalty": 0,
-            "score": 0,
-            "uncovered_length": 0,
-        }
+        # so I don't get yelled at for defining fields outside of __init__
+        self.stats = {}
+        # so I don't have to have everything defined in one place
+        self.reset_stats()
 
         self.default_planner_config = {
             "non_coverage_turning_radius": 8.0,
@@ -289,7 +276,9 @@ class TestScenarioRunner:
 
     def bag_msg(self, topic, msg):
         if self.bag and self.write_bags:
+            self.bag_lock.acquire()
             self.bag.write(topic, msg)
+            self.bag_lock.release()
 
     def stats_callback(self, msg):
         self.stats["samples_counts"].append(msg.samples)
@@ -304,14 +293,14 @@ class TestScenarioRunner:
         self.stats["collision_penalties"].append(msg.collision_penalty)
         self.stats["cpu_times"].append(msg.cpu_time)
         self.stats["last_plan_achievables"].append(msg.last_plan_achievable)
-        self.bag_msg('/path_planner/stats', msg)
+        # self.bag_msg('/path_planner/stats', msg)
 
     def task_level_stats_callback(self, msg):
         self.stats["total_time_from_planner"] = msg.time
         self.stats["cumulative_collision_penalty"] = msg.collision_penalty
         self.stats["score"] = msg.score
         self.stats["uncovered_length"] = msg.uncovered_length
-        self.bag_msg('/path_planner/task_level_stats', msg)
+        # self.bag_msg('/path_planner/task_level_stats', msg)
 
     def reset_stats(self):
         self.stats = {
@@ -320,12 +309,17 @@ class TestScenarioRunner:
             "expanded_counts": [],
             "iterations_counts": [],
             "f_values": [],
+            "plan_collision_penalties": [],
+            "plan_time_penalties": [],
+            "plan_h_values": [],
             "plan_depths": [],
             "collision_penalties": [],
             "cpu_times": [],
+            "last_plan_achievables": [],
             "total_time_from_planner": -1,
             "cumulative_collision_penalty": 0,
             "score": 0,
+            "uncovered_length": 0,
         }
 
     def write_results(self, path):
@@ -493,7 +487,9 @@ class TestScenarioRunner:
             os.makedirs(results_dir_path)
 
         # initialize bag
+        self.bag_lock.acquire()
         self.bag = rosbag.Bag(results_dir_path + "/logs.bag", 'w')
+        self.bag_lock.release()
 
         self.piloting_mode_publisher.publish("autonomous")
 
@@ -562,8 +558,10 @@ class TestScenarioRunner:
 
         self.reset_stats()
 
+        self.bag_lock.acquire()
         self.bag.close()
         self.bag = None
+        self.bag_lock.release()
 
 
 def run(input_text):
