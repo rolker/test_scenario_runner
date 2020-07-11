@@ -4,11 +4,11 @@ import os
 from datetime import datetime
 import pickle
 import rospy
+import rosbag
 import dynamic_reconfigure.client
 from std_msgs.msg import Bool, String, Header
-# from std_msgs.msg import String
 from marine_msgs.msg import Contact, NavEulerStamped
-from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import PointStamped, TwistStamped, Vector3
 from geographic_msgs.msg import GeoPoseStamped, GeoPointStamped
 from project11_transformations.srv import MapToLatLong
 from geographic_visualization_msgs.msg import GeoVizItem, GeoVizPointList, GeoVizPolygon, GeoVizSimplePolygon
@@ -37,7 +37,7 @@ class TestScenarioRunner:
     Obstacles will maintain speed and course. Width and length are optional - default values will be used if absent.
     Obstacle observation time is assumed to be the time the test begins.
     Obstacle course over ground is in degrees because it's easier to type cardinal directions as whole numbers.
-    Tests will be terminated after time_limit seconds have elapsed. The default time limit is 3600s.
+    Tests will be terminated after time_limit seconds have elapsed. The default time limit is 600s.
     Like the map_file, only the last time limit declared will be used.
     Specify a *.map file included in the repo or create your own in the same format (first number is resolution).
     Blank lines at the end of map files are not allowed, as the planner takes the shortest line as the boundary.
@@ -57,6 +57,7 @@ class TestScenarioRunner:
         self.test_running = False
         self.test_name = ""
         self.start_time = self.end_time = 0
+        self.default_time_limit = 600
         rospy.init_node('test_scenario_runner')
         self.reset_publisher = rospy.Publisher('/sim_reset', Bool, queue_size=5, latch=True)
         self.piloting_mode_publisher = rospy.Publisher('/project11/piloting_mode', String, queue_size=5, latch=True)
@@ -67,6 +68,120 @@ class TestScenarioRunner:
         self.stats_subscriber = rospy.Subscriber('/path_planner/stats', Stats, self.stats_callback)
         self.task_level_stats_subscriber = rospy.Subscriber('/path_planner/task_level_stats', TaskLevelStats,
                                                             self.task_level_stats_callback)
+        # bagging subs
+        topics = [
+                 # ["/asv_sim_node/parameter_descriptions", _type],
+                 # ["/asv_sim_node/parameter_updates", _type],
+                 # ["/base/camera/look_at", _type],
+                 # ["/base/camera/look_at_mode", _type],
+                 # ["/base/orientation", _type],
+                 # ["/base/position", _type],
+                 # ["/bearing", _type],
+                 # ["/clock", Clock],
+                 # ["/clock_factor", _type],
+                 # ["/cmd_vel", _type],
+                 # ["/cmg", _type],
+                 ["/contact", Contact],
+                 # ["/controller_msgs", _type],
+                 # ["/coverage", _type],
+                 # ["/diagnostics", _type],
+                 # ["/disturbance_estimate", _type],
+                 # ["/flir_engine", _type],
+                 # ["/heading", NavEulerStamped],
+                 # ["/heartbeat", _type],
+                 # ["/helm", _type],
+                 # ["/hover_action/cancel", _type],
+                 # ["/hover_action/feedback", _type],
+                 # ["/hover_action/goal", _type],
+                 # ["/hover_action/parameter_descriptions", _type],
+                 # ["/hover_action/parameter_updates", _type],
+                 # ["/hover_action/result", _type],
+                 # ["/hover_action/status", _type],
+                 # ["/mbes_ping", _type],
+                 # ["/mbr/9372/2510/margin_avg", _type],
+                 # ["/mbr/9372/2510/margin_min", _type],
+                 # ["/mission_manager/parameter_descriptions", _type],
+                 # ["/mission_manager/parameter_updates", _type],
+                 # ["/mission_manager/smach/container_init", _type],
+                 # ["/mission_manager/smach/container_status", _type],
+                 # ["/mission_manager/smach/container_structure", _type],
+                 # ["/mission_plan", _type],
+                 # ["/mpc/disturbance_estimate", Vector3],
+                 # ["/mpc/parameter_descriptions", _type],
+                 # ["/mpc/parameter_updates", _type],
+                 # ["/mpc/reference_trajectory", _type],
+                 # ["/obstacle_distance", _type],
+                 # ["/origin", _type],
+                 # ["/path_follower_action/cancel", _type],
+                 # ["/path_follower_action/feedback", _type],
+                 # ["/path_follower_action/goal", _type],
+                 # ["/path_follower_action/result", _type],
+                 # ["/path_follower_action/status", _type],
+                 # ["/path_planner/parameter_descriptions", _type],
+                 # ["/path_planner/parameter_updates", _type],
+                 # ["/path_planner/stats", _type],
+                 # ["/path_planner/task_level_stats", _type],
+                 # ["/path_planner_action/cancel", _type],
+                 # ["/path_planner_action/feedback", _type],
+                 # ["/path_planner_action/goal", _type],
+                 # ["/path_planner_action/result", _type],
+                 # ["/path_planner_action/status", _type],
+                 # ["/position", GeoPointStamped],
+                 # ["/position_map", _type],
+                 # ["/posmv/orientation", _type],
+                 # ["/posmv/position", _type],
+                 # ["/project11/command", _type],
+                 # ["/project11/desired_heading", _type],
+                 # ["/project11/desired_speed", _type],
+                 ["/project11/display", GeoVizItem],
+                 # ["/project11/mission_manager/command", _type],
+                 # ["/project11/mission_manager/status", _type],
+                 # ["/project11/piloting_mode", _type],
+                 # ["/project11/response", _type],
+                 # ["/radar", _type],
+                 # ["/radar/HaloA/data", _type],
+                 # ["/range", _type],
+                 # ["/remote/0/cmd_vel", _type],
+                 # ["/rosmon_1594406967160063576/state", _type],
+                 # ["/rosout", _type],
+                 # ["/rosout_agg", _type],
+                 # ["/send_command", _type],
+                 # ["/sim_reset", _type],
+                 # ["/sog", TwistStamped],
+                 # ["/speed_modulation", _type],
+                 # ["/survey_area_action/cancel", _type],
+                 # ["/survey_area_action/feedback", _type],
+                 # ["/survey_area_action/goal", _type],
+                 # ["/survey_area_action/result", _type],
+                 # ["/survey_area_action/status", _type],
+                 # ["/tf", _type],
+                 # ["/tf_static", _type],
+                 # ["/udp/command", _type],
+                 # ["/udp/contact", _type],
+                 # ["/udp/coverage", _type],
+                 # ["/udp/diagnostics", _type],
+                 # ["/udp/flir_engine", _type],
+                 # ["/udp/heading", _type],
+                 # ["/udp/heartbeat", _type],
+                 # ["/udp/helm", _type],
+                 # ["/udp/mbes_ping", _type],
+                 # ["/udp/mbr/9372/2510/margin_avg", _type],
+                 # ["/udp/mbr/9372/2510/margin_min", _type],
+                 # ["/udp/mission_plan", _type],
+                 # ["/udp/origin", _type],
+                 # ["/udp/position", _type],
+                 # ["/udp/posmv/orientation", _type],
+                 # ["/udp/posmv/position", _type],
+                 # ["/udp/project11/display", _type],
+                 # ["/udp/project11/mission_manager/status", _type],
+                 # ["/udp/project11/piloting_mode", _type],
+                 # ["/udp/radar", _type],
+                 # ["/udp/response", _type],
+                 # ["/udp/sog", _type],
+        ]
+        self.bagging_subs = [
+            rospy.Subscriber(topic[0], topic[1], self.get_bagging_callback(topic[0])) for topic in topics
+        ]
 
         self.map_to_lat_long = rospy.ServiceProxy('map_to_wgs84', MapToLatLong)
         self.set_pose = rospy.ServiceProxy('set_pose', SetPose)
@@ -79,18 +194,27 @@ class TestScenarioRunner:
         self.asv_sim_parameter_client = dynamic_reconfigure.client.Client("asv_sim_node", timeout=10)
 
         # recording stats
+
+        self.bag = None
+        self.write_bags = True
+
         self.stats = {
             "samples_counts": [],
             "generated_counts": [],
             "expanded_counts": [],
             "iterations_counts": [],
             "f_values": [],
+            "plan_collision_penalties": [],
+            "plan_time_penalties": [],
+            "plan_h_values": [],
             "plan_depths": [],
             "collision_penalties": [],
             "cpu_times": [],
+            "last_plan_achievables": [],
             "total_time_from_planner": -1,
             "cumulative_collision_penalty": 0,
             "score": 0,
+            "uncovered_length": 0,
         }
 
         self.default_planner_config = {
@@ -110,6 +234,7 @@ class TestScenarioRunner:
             "heuristic": 0,
             "dynamic_obstacles": 0,
             "ignore_dynamic_obstacles": False,
+            "use_potential_fields_planner": False,
         }
         self.default_mpc_config = {
             "rudder_granularity": 0.0625,
@@ -156,20 +281,37 @@ class TestScenarioRunner:
     def feedback_callback(self, msg):
         pass
 
+    # love a good higher order function
+    def get_bagging_callback(self, topic):
+        def callback(msg):
+            self.bag_msg(topic, msg)
+        return callback
+
+    def bag_msg(self, topic, msg):
+        if self.bag and self.write_bags:
+            self.bag.write(topic, msg)
+
     def stats_callback(self, msg):
         self.stats["samples_counts"].append(msg.samples)
         self.stats["generated_counts"].append(msg.generated)
         self.stats["expanded_counts"].append(msg.expanded)
         self.stats["iterations_counts"].append(msg.iterations)
         self.stats["f_values"].append(msg.plan_f_value)
+        self.stats["plan_collision_penalties"].append(msg.plan_collision_penalty)
+        self.stats["plan_time_penalties"].append(msg.plan_time_penalty)
+        self.stats["plan_h_values"].append(msg.plan_h_value)
         self.stats["plan_depths"].append(msg.plan_depth)
         self.stats["collision_penalties"].append(msg.collision_penalty)
         self.stats["cpu_times"].append(msg.cpu_time)
+        self.stats["last_plan_achievables"].append(msg.last_plan_achievable)
+        self.bag_msg('/path_planner/stats', msg)
 
     def task_level_stats_callback(self, msg):
         self.stats["total_time_from_planner"] = msg.time
         self.stats["cumulative_collision_penalty"] = msg.collision_penalty
         self.stats["score"] = msg.score
+        self.stats["uncovered_length"] = msg.uncovered_length
+        self.bag_msg('/path_planner/task_level_stats', msg)
 
     def reset_stats(self):
         self.stats = {
@@ -231,6 +373,7 @@ class TestScenarioRunner:
             contact.header = Header()
             contact.header.stamp = rospy.Time.now()
             self.contact_publisher.publish(contact)
+            # self.bag_msg('/contact', contact)
 
     def load_parameters(self, parameter_file_names):
         self.planner_config = self.default_planner_config
@@ -267,6 +410,10 @@ class TestScenarioRunner:
     def update_single_default_parameter(self, line):
         try:
             name, value = line.split(' ')
+            if name == "time_limit":
+                self.default_time_limit = int(value)
+                print ("Default time limit updated")
+                return True
             for parameters in [self.default_planner_config,
                                self.default_mpc_config,
                                self.default_sim_config]:
@@ -284,7 +431,7 @@ class TestScenarioRunner:
         obstacles = []
         map_file = ""
         start = []
-        time_limit = 600
+        time_limit = self.default_time_limit
         parameter_file_names = []
         try:
             with open(filename, "r") as testfile:
@@ -337,6 +484,17 @@ class TestScenarioRunner:
         else:
             self.path_planner_parameter_client.update_configuration({"planner_geotiff_map": ""})
 
+        self.test_name = filename
+
+        # create results directory
+        now = datetime.now()
+        results_dir_path = "../results/" + now.strftime("%Y_%m_%d/%H:%M:%S_" + self.test_name)
+        if not os.path.exists(results_dir_path):
+            os.makedirs(results_dir_path)
+
+        # initialize bag
+        self.bag = rosbag.Bag(results_dir_path + "/logs.bag", 'w')
+
         self.piloting_mode_publisher.publish("autonomous")
 
         # Set up set_pose request
@@ -351,7 +509,6 @@ class TestScenarioRunner:
             self.reset_publisher.publish(True)
 
         rospy.sleep(0.2)  # Let simulator reset
-        self.test_name = filename
 
         self.start_time = rospy.get_time()
         self.end_time = self.start_time + time_limit
@@ -400,14 +557,13 @@ class TestScenarioRunner:
         self.piloting_mode_publisher.publish("standby")
 
         # reporting
-        now = datetime.now()
-        results_dir_path = "../results/" + now.strftime("%Y_%m_%d/%H:%M:%S_" + self.test_name)
-        if not os.path.exists(results_dir_path):
-            os.makedirs(results_dir_path)
 
         self.write_results(results_dir_path)
 
         self.reset_stats()
+
+        self.bag.close()
+        self.bag = None
 
 
 def run(input_text):

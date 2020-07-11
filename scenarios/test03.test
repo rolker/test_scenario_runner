@@ -1,0 +1,4 @@
+line 10 20 10 70
+start 10 5 0 0
+obstacle 30 40 0 0 10 20
+map_file empty.map

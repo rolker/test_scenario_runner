@@ -14,6 +14,7 @@ visualization_file /tmp/planner_scenario_visualization
 heuristic 0
 dynamic_obstacles 0
 ignore_dynamic_obstacles False
+use_potential_fields_planner False
 rudder_granularity 0.0625
 throttle_granularity 0.125
 distance_weight 1.0
