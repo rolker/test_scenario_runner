@@ -10,9 +10,11 @@ cannon_go_around.test
 cannon_wait_1.test
 cannon_wait_2.test
 dynamic_wall_1.test
-long_multi_line.test
 long_single_line.test
 test01.test
 test02a.test
+test02b.test
 test03.test
 test04.test
+test12a.test
+test12b.test

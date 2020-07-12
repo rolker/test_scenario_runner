@@ -322,6 +322,7 @@ class TestScenarioRunner:
             "cumulative_collision_penalty": 0,
             "score": 0,
             "uncovered_length": 0,
+            "time_limit": self.default_time_limit,  # store time limit here so it gets recorded
         }
 
     def write_results(self, path):
@@ -343,6 +344,7 @@ class TestScenarioRunner:
             if self.end_time < rospy.get_time():
                 self.test_running = False
                 self.path_planner_client.cancel_goal()
+                rospy.sleep(2)  # sleep for a couple seconds after cancel from timeout
 
     def publish_obstacles(self, obstacles):
         for i in range(len(obstacles)):
@@ -427,7 +429,7 @@ class TestScenarioRunner:
         obstacles = []
         map_file = ""
         start = []
-        time_limit = self.default_time_limit
+        self.stats["time_limit"] = self.default_time_limit
         parameter_file_names = []
         try:
             with open(filename, "r") as testfile:
@@ -447,8 +449,9 @@ class TestScenarioRunner:
                             obs.append(5)
                             obs.append(20)
                         obstacles.append(obs)
-                    elif line.startswith("time_limit"):
-                        time_limit = float(line[10:])
+                    # ignore test-defined time limit (deprecated)
+                    # elif line.startswith("time_limit"):
+                    #     self.stats["time_limit"] = float(line[10:])
                     elif line.startswith("map_file"):
                         map_file = line[8:].strip()
                     elif line.startswith("parameter_file"):
@@ -508,13 +511,13 @@ class TestScenarioRunner:
 
         rospy.sleep(0.2)  # Let simulator reset
 
-        self.start_time = rospy.get_time()
-        self.end_time = self.start_time + time_limit
-
         # finish setting up obstacles
         for o in obstacles:
             o.append(rospy.get_time())
             o[2] = math.radians(o[2])
+
+        self.start_time = rospy.get_time()
+        self.end_time = self.start_time + self.stats["time_limit"]
 
         # set up both path_planner goal and display for lines
         goal = path_planner.msg.path_plannerGoal()

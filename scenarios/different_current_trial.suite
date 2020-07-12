@@ -1,0 +1,17 @@
+time_limit 600
+current_direction 0
+everything_short.suite
+current_direction 45
+everything_short.suite
+current_direction 90
+everything_short.suite
+current_direction 135
+everything_short.suite
+current_direction 180
+everything_short.suite
+current_direction 225
+everything_short.suite
+current_direction 270
+everything_short.suite
+current_direction 315
+everything_short.suite

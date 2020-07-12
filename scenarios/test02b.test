@@ -1,0 +1,4 @@
+line 20 30 40 90
+line 40 90 20 150
+start 10 5 0 0
+map_file empty.map
