@@ -1,4 +1,3 @@
-line 0 20 0 220
-start 0 0 0 0
-map_file empty.map
-time_limit 200
+line 10 20 10 220
+start 10 5 0 0
+map_file large_empty.map

@@ -1,0 +1,35 @@
+time_limit 600
+everything_short.suite
+time_limit 7200
+test05a.test
+test05b.test
+test05c.test
+test05d.test
+test06a.test
+test06b.test
+test06c.test
+test06d.test
+test07a.test
+test07b.test
+test07c.test
+test07d.test
+test08a.test
+test08b.test
+test08c.test
+test08d.test
+test09a.test
+test09b.test
+test09c.test
+test09d.test
+test10a.test
+test10b.test
+test10c.test
+test10d.test
+test11a.test
+test11b.test
+test11c.test
+test11d.test
+test12a.test
+test12b.test
+test12c.test
+test12d.test

@@ -201,7 +201,7 @@ class TestScenarioRunner:
         # recording stats
         # so I don't get yelled at for defining fields outside of __init__
         self.stats = {}
-        # so I don't have to have everything defined in one place
+        # so I don't have to have everything defined in more than one place
         self.reset_stats()
 
         self.default_planner_config = {
@@ -275,9 +275,11 @@ class TestScenarioRunner:
         return callback
 
     def bag_msg(self, topic, msg):
-        if self.bag and self.write_bags:
-            self.bag_lock.acquire()
-            self.bag.write(topic, msg)
+        self.bag_lock.acquire()
+        try:
+            if self.bag and self.write_bags:
+                self.bag.write(topic, msg)
+        finally:
             self.bag_lock.release()
 
     def stats_callback(self, msg):
@@ -509,21 +511,19 @@ class TestScenarioRunner:
         self.start_time = rospy.get_time()
         self.end_time = self.start_time + time_limit
 
-        display_item = None
+        # finish setting up obstacles
+        for o in obstacles:
+            o.append(rospy.get_time())
+            o[2] = math.radians(o[2])
+
+        # set up both path_planner goal and display for lines
+        goal = path_planner.msg.path_plannerGoal()
+        goal.path.header.stamp = rospy.Time.now()
+        display_item = GeoVizItem()
+        display_item.id = "current_path"
 
         for line in lines:
-            if self.end_time < rospy.get_time():
-                return
-
-            for o in obstacles:
-                o.append(rospy.get_time())
-                o[2] = math.radians(o[2])
-
-            # Ask the planner to cover the points
-            goal = path_planner.msg.path_plannerGoal()
-            goal.path.header.stamp = rospy.Time.now()
-            display_item = GeoVizItem()
-            display_item.id = "current_path"
+            # now sending all lines at once, so points are to be read in pairs
             display_points = GeoVizPointList()
             display_points.color.r = 1.0
             display_points.color.a = 1.0
@@ -535,14 +535,14 @@ class TestScenarioRunner:
                 display_points.points.append(p)
             # TODO! -- goal.speed?
             display_item.lines.append(display_points)
-            # TODO! -- send all lines at once, waiting until MM does it so I know the format
-            self.display_publisher.publish(display_item)
-            self.test_running = True
 
-            self.path_planner_client.wait_for_server()
-            self.path_planner_client.send_goal(goal, self.done_callback, self.active_callback, self.feedback_callback)
-            # Spin and publish obstacle updates every 0.5s
-            self.spin_until_done(obstacles)
+        self.display_publisher.publish(display_item)
+        self.test_running = True
+
+        self.path_planner_client.wait_for_server()
+        self.path_planner_client.send_goal(goal, self.done_callback, self.active_callback, self.feedback_callback)
+        # Spin and publish obstacle updates every 0.5s
+        self.spin_until_done(obstacles)
 
         print ("Test %s complete in %s seconds." % (self.test_name, (rospy.get_time() - self.start_time)))
 

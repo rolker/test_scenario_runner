@@ -3,4 +3,3 @@ obstacle 10 10 0 0 10 10
 obstacle 10 20 0 0 5 5
 line 30 10 50 10
 start -20 10 90
-map_file empty.map

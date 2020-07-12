@@ -60,6 +60,26 @@ def load_all_results(path_to_results_dir, day_filters=None, day_not_filters=None
     return everything
 
 
+def by_name(result):
+    return result["name"]
+
+
+def remove_not_finished(results):
+    return [result for result in results if result["stats"]["uncovered_length"] == 0]
+
+
+def remove_names(results, names):
+    return [result for result in results if result["name"] not in names]
+
+
+def get_scores(results):
+    get_stats_item(results, "score")
+
+
+def get_stats_item(results, stat_name):
+    return [result["stats"][stat_name] for result in results]
+
+
 if __name__ == "__main__":
     # demo
     results = load_all_results("../results/")
