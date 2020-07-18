@@ -1,5 +1,6 @@
-line 1500 100 1500 1900
-start 1500 20 0 0
-map_file large_empty.map
-obstacle 2480 1000 270 2 200 200
-obstacle 500 800 90 2 200 200
+# 150 * s + w/2, 300, 270, s, w, w
+# -100 * s + w/2, 200, 90, s, w, w
+line 0 100 0 500
+start 0 0 0 0
+obstacle 400 300 270 2.1 200 200
+obstacle -300 200 90 2.1 200 200

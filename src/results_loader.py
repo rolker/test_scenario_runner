@@ -1,5 +1,8 @@
 import os
 import pickle
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.backends.backend_pdf import PdfPages
 
 
 def load_config(path_to_test_dir):
@@ -60,6 +63,7 @@ def load_all_results(path_to_results_dir, day_filters=None, day_not_filters=None
     return everything
 
 
+# access, filtering, etc
 def by_name(result):
     return result["name"]
 
@@ -73,11 +77,141 @@ def remove_names(results, names):
 
 
 def get_scores(results):
-    get_stats_item(results, "score")
+    return get_stats_item(results, "score")
+
+
+def get_achievable_fractions(results):
+    achievable_counts = np.array([sum(r) for r in get_stats_item(results, "last_plan_achievables")])
+    iteration_counts = np.array([float(len(r)) for r in get_stats_item(results, "last_plan_achievables")])
+    return achievable_counts / iteration_counts
 
 
 def get_stats_item(results, stat_name):
     return [result["stats"][stat_name] for result in results]
+
+
+def get_results_where(results, filter):
+    return [result for result in results if filter(result)]
+
+
+def get_results_with_specific_config_value(results, config_name, field, value):
+    def f(result):
+        return result[config_name][field] == value
+
+    return get_results_where(results, f)
+
+
+def run_aground(result):
+    return result["stats"]["total_time_from_planner"] < result["stats"]["time_limit"] and\
+           result["stats"]["uncovered_length"] > 0
+
+
+def get_names(results):
+    return [result["name"] for result in results]
+
+
+# plotting
+def plot_bar_chart(path, x, names, title, y_label, x_label):
+    with PdfPages(path) as pdf:
+        # change the size (not necessary) units are in inches
+        # plt.figure(figsize=(10, 5))
+
+        # change font size (make test readable)
+        plt.rcParams["font.size"] = 8
+        # force labels to be visible
+        fig, ax = plt.subplots(tight_layout=True)
+
+        # plot data...
+        N = len(x)
+        ind = np.arange(N)  # the x locations for the groups
+        width = 0.27  # the width of the bars
+
+        rects1 = ax.bar(ind, x, width, color='b')
+        # rects2 = ax.bar(ind + width, x1, width, color='b', label=label1)
+
+        ax.set_ylabel(y_label)
+        # ax.set_yscale('log')
+        ax.set_xticks(ind)
+        ax.set_xticklabels(names)
+        ax.set_xlabel(x_label)
+        # rotate names so you can read them
+        plt.xticks(rotation=90)
+
+        # ax.legend(loc='upper right')
+        # plt.show()
+
+        plt.title(title)
+        pdf.savefig()  # saves the current figure into a pdf page
+        plt.close()
+
+
+def plot_side_by_side_bar_chart(path, x1, x2, names, title, y_label, x_label, label1, label2, scale="log"):
+    with PdfPages(path) as pdf:
+        # change the size (not necessary) units are in inches
+        # plt.figure(figsize=(10, 5))
+
+        # change font size (make test readable)
+        plt.rcParams["font.size"] = 8
+        # force labels to be visible
+        fig, ax = plt.subplots(tight_layout=True)
+
+        # plot data...
+        N = len(x1)
+        ind = np.arange(N)  # the x locations for the groups
+        width = 0.27  # the width of the bars
+
+        rects1 = ax.bar(ind, x2, width, color='r', label=label2)
+        rects2 = ax.bar(ind + width, x1, width, color='b', label=label1)
+
+        ax.set_ylabel(y_label)
+        ax.set_yscale(scale)
+        ax.set_xticks(ind + width / 2)
+        ax.set_xticklabels(names)
+        ax.set_xlabel(x_label)
+        # rotate names so you can read them
+        plt.xticks(rotation=90)
+
+        ax.legend(loc='upper right')
+        # plt.show()
+
+        plt.title(title)
+        pdf.savefig()  # saves the current figure into a pdf page
+        plt.close()
+
+
+def plot_several_bar_charts_to_one_pdf(path, x_list, names, titles_list, y_label, x_label):
+    with PdfPages(path) as pdf:
+        # change the size (not necessary) units are in inches
+        # plt.figure(figsize=(10, 5))
+
+        for x, title in zip(x_list, titles_list):
+            # change font size (make test readable)
+            plt.rcParams["font.size"] = 8
+            # force labels to be visible
+            fig, ax = plt.subplots(tight_layout=True)
+
+            # plot data...
+            N = len(x)
+            ind = np.arange(N)  # the x locations for the groups
+            width = 0.27  # the width of the bars
+
+            rects1 = ax.bar(ind, x, width, color='b')
+            # rects2 = ax.bar(ind + width, x1, width, color='b', label=label1)
+
+            ax.set_ylabel(y_label)
+            # ax.set_yscale('log')
+            ax.set_xticks(ind)
+            ax.set_xticklabels(names)
+            ax.set_xlabel(x_label)
+            # rotate names so you can read them
+            plt.xticks(rotation=90)
+
+            # ax.legend(loc='upper right')
+            # plt.show()
+
+            plt.title(title)
+            pdf.savefig()  # saves the current figure into a pdf page
+            plt.close()
 
 
 if __name__ == "__main__":

@@ -1,5 +1,4 @@
-line 1500 100 1500 2100
-start 1500 20 0 0
-map_file large_empty.map
-obstacle 1950 -600 0 3 1000 1000
-obstacle 1050 2400 180 2 1000 1000
+line 0 100 0 500
+start 0 0 0 0
+obstacle 250 -600 0 3 1000 1000
+obstacle -250 1000 180 2 1000 1000

@@ -3,113 +3,219 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 
-
-def plotPDF(path, x1, x2, names, title, y_label, label1, label2):
-    with PdfPages(path) as pdf:
-        # change the size (not necessary) units are in inches
-        # plt.figure(figsize=(10, 5))
-
-        # change font size (make test readable)
-        plt.rcParams["font.size"] = 8
-        # force labels to be visible
-        fig, ax = plt.subplots(tight_layout=True)
-
-        # plot data...
-        N = len(x1)
-        ind = np.arange(N)  # the x locations for the groups
-        width = 0.27       # the width of the bars
-
-        # TODO! -- log scale for Y axis
-        rects1 = ax.bar(ind, x2, width, color='r', label=label2)
-        rects2 = ax.bar(ind + width, x1, width, color='b', label=label1)
-
-        ax.set_ylabel(y_label)
-        ax.set_yscale('log')
-        ax.set_xticks(ind + width/2)
-        ax.set_xticklabels(names)
-        # rotate names so you can read them
-        plt.xticks(rotation=90)
-
-        ax.legend(loc='upper right')
-        # plt.show()
-
-        plt.title(title)
-        pdf.savefig()  # saves the current figure into a pdf page
-        plt.close()
-
-
-def plot_side_by_side_bar_chart(path, x1, x2, names, title, y_label, label1, label2):
-    with PdfPages(path) as pdf:
-        # change the size (not necessary) units are in inches
-        # plt.figure(figsize=(10, 5))
-
-        # change font size (make test readable)
-        plt.rcParams["font.size"] = 8
-        # force labels to be visible
-        fig, ax = plt.subplots(tight_layout=True)
-
-        # plot data...
-        N = len(x1)
-        ind = np.arange(N)  # the x locations for the groups
-        width = 0.27       # the width of the bars
-
-        rects1 = ax.bar(ind, x2, width, color='r', label=label2)
-        rects2 = ax.bar(ind + width, x1, width, color='b', label=label1)
-
-        ax.set_ylabel(y_label)
-        ax.set_yscale('log')
-        ax.set_xticks(ind + width/2)
-        ax.set_xticklabels(names)
-        # rotate names so you can read them
-        plt.xticks(rotation=90)
-
-        ax.legend(loc='upper right')
-        # plt.show()
-
-        plt.title(title)
-        pdf.savefig()  # saves the current figure into a pdf page
-        plt.close()
-
-
 if __name__ == "__main__":
     plt.style.use('seaborn-deep')
-    results = load_all_results("../pf_vs_planner_1/")
-    print len(results)
-    # should really use some sort of filter for most of these...
-    pf_results = [result for result in results if result["planner_config"]["use_potential_fields_planner"]]
-    print len(pf_results)
-    planner_results = [result for result in results if not result["planner_config"]["use_potential_fields_planner"] and
-                       result["planner_config"]["slow_speed"] == 1]
-    print len(planner_results)
-    adjacent_single_line_pf_results = [result for result in pf_results if result["name"] == "adjacent_single_line"]
-    print adjacent_single_line_pf_results[0]["stats"]
-    planner_uncovered_remaining = sum([result["stats"]["uncovered_length"] for result in planner_results])
-    pf_uncovered_remaining = sum([result["stats"]["uncovered_length"] for result in pf_results])
-    print ("Uncovered remaining with slowing allowed:", planner_uncovered_remaining)
-    print ("Uncovered remaining with no slowing allowed:", pf_uncovered_remaining)
-    unfinished_names = [result["name"] for result in results if result["stats"]["uncovered_length"] > 0]
-    print ("Unfinished tasks:", unfinished_names)
-    pf_results = remove_names(pf_results, unfinished_names)
-    planner_results = remove_names(planner_results, unfinished_names)
-    planner_names = [result["name"] for result in planner_results]
-    # not including a couple of results from the planner so gotta chuck em here
-    pf_results = [result for result in pf_results if result["name"] in planner_names]
+    pf_results = load_all_results("../pf_10_times/")
+    planner_results = load_all_results("../short_10_times/")
+
+    # print len(pf_results), len(planner_results)
+    all_names = list(set(get_names(planner_results)))
+    all_names.sort()
+    # counts = {r: all_names.count(r) for r in all_names}
+    # print counts
+
+    planner_completed_names = list(set(get_names(get_results_where(planner_results,
+                                                          lambda r: r["stats"]["uncovered_length"] == 0))))
+    pf_completed_names = list(set(get_names(get_results_where(pf_results,
+                                                     lambda r: r["stats"]["uncovered_length"] == 0))))
+    planner_completed_names.sort()
+    pf_completed_names.sort()
+
+    planner_completed_counts = {r: planner_completed_names.count(r) for r in all_names}
+    pf_completed_counts = {r: pf_completed_names.count(r) for r in all_names}
+
+    # print planner_completed_counts
+    # print pf_completed_counts
+
+    planner_completed_counts_list = [planner_completed_counts[n] for n in all_names]
+    pf_completed_counts_list = [pf_completed_counts[n] for n in all_names]
+
+    planner_results = remove_not_finished(planner_results)
+    pf_results = remove_not_finished(pf_results)
+
+    # for l in [all_names, planner_completed_counts_list, pf_completed_counts_list]:
+    #     print ''.join(map(str, [str(x) + " & " for x in l])), "\\\\"
+
+    planner_by_name = [get_results_where(planner_results, lambda r: r["name"] == name) for name in pf_completed_names]
+    pf_by_name = [get_results_where(pf_results, lambda r: r["name"] == name) for name in pf_completed_names]
+
+    planner_median_scores = [np.median(np.array(get_scores(r))) for r in planner_by_name]
+    planner_max_scores = [np.max(np.array(get_scores(r))) for r in planner_by_name]
+    planner_min_scores = [np.min(np.array(get_scores(r))) for r in planner_by_name]
+
+    # print planner_max_scores
+    # print planner_median_scores
+    # print planner_min_scores
+
+    pf_median_scores = [np.median(np.array(get_scores(r))) for r in pf_by_name]
+    pf_max_scores = [np.max(np.array(get_scores(r))) for r in pf_by_name]
+    pf_min_scores = [np.min(np.array(get_scores(r))) for r in pf_by_name]
+
+    # print "max", pf_max_scores
+    # print "median", pf_median_scores
+    # print "min", pf_min_scores
+
+    # for name, max, median, min in zip(pf_completed_names, pf_max_scores, pf_median_scores, pf_min_scores):
+    #     print name, max, median, min
+
+    path = "../plots/pf_vs_planner/pf_vs_planner_score.pdf"
+    title = "Potential Fields vs Planner in Small Instances"
+    y_label = "Median Score"
+    x_label = "Test Name"
+    label1 = "Planner"
+    label2 = "Potential Fields"
+    # plot_side_by_side_bar_chart(path, planner_median_scores, pf_median_scores, pf_completed_names, title, y_label,
+    #                             x_label, label1, label2, 'log')
+
+    # get last plan achievable stats
+    pf_achievable_count = sum([sum(r) for r in get_stats_item(pf_results, "last_plan_achievables")])
+    total_iterations_pf = sum([len(r) for r in get_stats_item(pf_results, "last_plan_achievables")])
+    print pf_achievable_count, total_iterations_pf, float(pf_achievable_count) / float(total_iterations_pf)
+    planner_achievable_count = sum([sum(r) for r in get_stats_item(planner_results, "last_plan_achievables")])
+    total_iterations_planner = sum([len(r) for r in get_stats_item(planner_results, "last_plan_achievables")])
+    print planner_achievable_count, total_iterations_planner, float(planner_achievable_count) / float(total_iterations_planner)
+
+    planner_achievable_fractions = np.array([get_achievable_fractions(r).mean() for r in planner_by_name]) * 100
+    print planner_achievable_fractions
+
+    pf_achievable_fractions = np.array([get_achievable_fractions(r).mean() for r in pf_by_name]) * 100
+    print pf_achievable_fractions
+
+    path = "../plots/pf_vs_planner/pf_vs_planner_achievable.pdf"
+    title = "Potential Fields vs Planner Achievable Plan Percentage"
+    y_label = "Achievable Plans (%)"
+    x_label = "Test Name"
+    label1 = "Planner"
+    label2 = "Potential Fields"
+    # plot_side_by_side_bar_chart(path, planner_achievable_fractions, pf_achievable_fractions, all_names, title, y_label,
+    #                             x_label, label1, label2, 'linear')
+
+    # okay now for long tests
+    pf_results = load_all_results("../pf_long_tests/")
+    planner_results = load_all_results("../planner_long_tests/")
+
+    print len(pf_results), len(planner_results)
+    all_names = list(set(get_names(planner_results)))
+    all_names.sort()
+
+    # remove run aground
+    aground_names = get_names(get_results_where(pf_results, run_aground))
+    print aground_names
+    pf_results = remove_names(pf_results, aground_names)
+    planner_results = remove_names(planner_results, aground_names)
+
+    # sort by name
     pf_results.sort(key=by_name)
     planner_results.sort(key=by_name)
-    print len(pf_results)
-    print len(planner_results)
-    planner_times = [result["stats"]["total_time_from_planner"] for result in planner_results]
-    pf_times = [result["stats"]["total_time_from_planner"] for result in pf_results]
-    planner_scores = [result["stats"]["score"] for result in planner_results]
-    pf_scores = [result["stats"]["score"] for result in pf_results]
-    print planner_times
-    print pf_times
-    time_differences = [a - b for a, b in zip(planner_times, pf_times)]
-    print time_differences
 
-    names = [result["name"] for result in planner_results]
+    # get scores
+    pf_scores = get_scores(pf_results)
+    planner_scores = get_scores(planner_results)
 
-    plotPDF('../plots/pf_vs_planner_1_time.pdf', planner_times, pf_times, names,
-            "Potential Fields vs Planner completion times", 'Completion Time', "Planner", "Potential Fields")
-    plotPDF('../plots/pf_vs_planner_1_score.pdf', planner_scores, pf_scores, names,
-            "Potential Fields vs Planner costs", 'Cost', "Planner", "Potential Fields")
+    print len(pf_scores), len(planner_scores)
+
+    # generate plot
+    path = "../plots/pf_vs_planner/pf_vs_planner_long_tests_score.pdf"
+    title = "Potential Fields vs Planner in Larger Instances"
+    y_label = "Score"
+    x_label = "Test Name"
+    label1 = "Planner"
+    label2 = "Potential Fields"
+    # plot_side_by_side_bar_chart(path, planner_scores, pf_scores, all_names, title, y_label, x_label, label1, label2,
+    #                             'log')
+
+    # table = plt.table(cellText=[planner_completed_counts_list, pf_completed_counts_list],
+    #                   rowLabels=["Planner", "Potential Fields"],
+    #                   colLabels=all_names)
+    #
+    # table.set_fontsize(24)
+    #
+    # plt.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+    # plt.tick_params(axis='y', which='both', right=False, left=False, labelleft=False)
+    # for pos in ['right', 'top', 'bottom', 'left']:
+    #     plt.gca().spines[pos].set_visible(False)
+
+    # path = "../plots/pf_vs_planner/pf_vs_planner_completed_table_1.pdf"
+    # with PdfPages(path) as pdf:
+    #     # plt.rcParams["font.size"] = 20
+    #
+    #     fig = plt.figure()
+    #     ax = fig.add_subplot(111)
+    #     col_labels = all_names[:7]
+    #     row_labels = ["Planner", "Potential Fields"]
+    #     table_vals = [planner_completed_counts_list[:7], pf_completed_counts_list[:7]]
+    #
+    #     # Draw table
+    #     the_table = plt.table(cellText=table_vals,
+    #                           # colWidths=[0.1] * len(col_labels),
+    #                           rowLabels=row_labels,
+    #                           colLabels=col_labels,
+    #                           loc='center')
+    #     the_table.auto_set_font_size(False)
+    #     the_table.set_fontsize(5)
+    #     the_table.scale(1, 1)
+    #
+    #     # Removing ticks and spines enables you to get the figure only with table
+    #     plt.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+    #     plt.tick_params(axis='y', which='both', right=False, left=False, labelleft=False)
+    #     for pos in ['right','top','bottom','left']:
+    #         plt.gca().spines[pos].set_visible(False)
+    #
+    #     pdf.savefig()
+    #
+    # path = "../plots/pf_vs_planner/pf_vs_planner_completed_table_2.pdf"
+    # with PdfPages(path) as pdf:
+    #     # plt.rcParams["font.size"] = 20
+    #
+    #     fig = plt.figure()
+    #     ax = fig.add_subplot(111)
+    #     col_labels = all_names[7:13]
+    #     row_labels = ["Planner", "Potential Fields"]
+    #     table_vals = [planner_completed_counts_list[7:13], pf_completed_counts_list[7:13]]
+    #
+    #     # Draw table
+    #     the_table = plt.table(cellText=table_vals,
+    #                           # colWidths=[0.1] * len(col_labels),
+    #                           rowLabels=row_labels,
+    #                           colLabels=col_labels,
+    #                           loc='center')
+    #     the_table.auto_set_font_size(False)
+    #     the_table.set_fontsize(5)
+    #     the_table.scale(1, 1)
+    #
+    #     # Removing ticks and spines enables you to get the figure only with table
+    #     plt.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+    #     plt.tick_params(axis='y', which='both', right=False, left=False, labelleft=False)
+    #     for pos in ['right','top','bottom','left']:
+    #         plt.gca().spines[pos].set_visible(False)
+    #
+    #     pdf.savefig()
+    #
+    # path = "../plots/pf_vs_planner/pf_vs_planner_completed_table_3.pdf"
+    # with PdfPages(path) as pdf:
+    #     # plt.rcParams["font.size"] = 20
+    #
+    #     fig = plt.figure()
+    #     ax = fig.add_subplot(111)
+    #     col_labels = all_names[13:]
+    #     row_labels = ["Planner", "Potential Fields"]
+    #     table_vals = [planner_completed_counts_list[13:], pf_completed_counts_list[13:]]
+    #
+    #     # Draw table
+    #     the_table = plt.table(cellText=table_vals,
+    #                           # colWidths=[0.1] * len(col_labels),
+    #                           rowLabels=row_labels,
+    #                           colLabels=col_labels,
+    #                           loc='center')
+    #     the_table.auto_set_font_size(False)
+    #     the_table.set_fontsize(5)
+    #     the_table.scale(1, 1)
+    #
+    #     # Removing ticks and spines enables you to get the figure only with table
+    #     plt.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
+    #     plt.tick_params(axis='y', which='both', right=False, left=False, labelleft=False)
+    #     for pos in ['right','top','bottom','left']:
+    #         plt.gca().spines[pos].set_visible(False)
+    #
+    #     pdf.savefig()
+

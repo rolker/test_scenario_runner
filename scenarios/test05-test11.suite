@@ -1,0 +1,32 @@
+time_limit 600
+test05a.test
+test06a.test
+test07a.test
+test08a.test
+test09a.test
+test10a.test
+test11a.test
+time_limit 1200
+test05b.test
+test06b.test
+test07b.test
+test08b.test
+test09b.test
+test10b.test
+test11b.test
+time_limit 1800
+test05c.test
+test06c.test
+test07c.test
+test08c.test
+test09c.test
+test10c.test
+test11c.test
+time_limit 3600
+test05d.test
+test06d.test
+test07d.test
+test08d.test
+test09d.test
+test10d.test
+test11d.test

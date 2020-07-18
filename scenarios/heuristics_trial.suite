@@ -1,0 +1,11 @@
+slow_speed 0
+heuristic 2
+adjacent_multi_line.test
+heuristic 0
+adjacent_multi_line.test
+heuristic 1
+adjacent_multi_line.test
+heuristic 3
+adjacent_multi_line.test
+heuristic 4
+adjacent_multi_line.test

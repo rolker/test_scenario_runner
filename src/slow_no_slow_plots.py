@@ -19,18 +19,17 @@ def plotPDF(path, x1, x2, names, title):
         ind = np.arange(N)  # the x locations for the groups
         width = 0.27       # the width of the bars
 
-        # TODO! -- log scale for Y axis
         rects1 = ax.bar(ind, x2, width, color='r', label="slowing not allowed")
         rects2 = ax.bar(ind + width, x1, width, color='b', label="slowing allowed")
 
-        ax.set_ylabel('Completion Times')
-        ax.set_yscale('log')
+        ax.set_ylabel('Score')
+        # ax.set_yscale('log')
         ax.set_xticks(ind + width/2)
         ax.set_xticklabels(names)
         # rotate names so you can read them
         plt.xticks(rotation=90)
 
-        ax.legend(loc='upper right')
+        ax.legend(loc='upper center')
         # plt.show()
 
         plt.title(title)
@@ -45,7 +44,7 @@ if __name__ == "__main__":
     # should really use some sort of filter for most of these...
     no_slow_results = [result for result in results if result["planner_config"]["slow_speed"] == 0]
     print len(no_slow_results)
-    slow_results = [result for result in results if result["planner_config"]["slow_speed"] == 1]
+    slow_results = load_all_results("../default_settings/")
     print len(slow_results)
     slow_uncovered_remaining = sum([result["stats"]["uncovered_length"] for result in slow_results])
     no_slow_uncovered_remaining = sum([result["stats"]["uncovered_length"] for result in no_slow_results])
@@ -55,6 +54,8 @@ if __name__ == "__main__":
     print ("Unfinished tasks:", unfinished_names)
     no_slow_results = [result for result in no_slow_results if result["name"] not in unfinished_names]
     slow_results = [result for result in slow_results if result["name"] not in unfinished_names]
+    no_slow_names = get_names(no_slow_results)
+    slow_results = get_results_where(slow_results, lambda r: r["name"] in no_slow_names)
     no_slow_results.sort(key=by_name)
     slow_results.sort(key=by_name)
     print len(no_slow_results)
@@ -71,4 +72,4 @@ if __name__ == "__main__":
     names = [result["name"] for result in slow_results]
 
     # plotPDF('../plots/slow_no_slow_score.pdf', slow_times, no_slow_times, names, "Effects of allowing slowing down on completion times")
-    plotPDF('../plots/slow_no_slow_score.pdf', slow_scores, no_slow_scores, names, "Effects of allowing slowing down on scores")
+    plotPDF('../plots/slow_no_slow_1/slow_no_slow_score.pdf', slow_scores, no_slow_scores, names, "Effects of allowing slowing down on scores")
