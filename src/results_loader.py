@@ -174,7 +174,7 @@ def plot_side_by_side_bar_chart(path, x1, x2, names, title, y_label, x_label, la
         ax.legend(loc='upper right')
         # plt.show()
 
-        plt.title(title)
+        # plt.title(title)
         pdf.savefig()  # saves the current figure into a pdf page
         plt.close()
 

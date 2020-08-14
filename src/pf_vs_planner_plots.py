@@ -10,14 +10,18 @@ if __name__ == "__main__":
 
     # print len(pf_results), len(planner_results)
     all_names = list(set(get_names(planner_results)))
+    all_names.remove("ahead_short")
     all_names.sort()
     # counts = {r: all_names.count(r) for r in all_names}
     # print counts
 
     planner_completed_names = list(set(get_names(get_results_where(planner_results,
-                                                          lambda r: r["stats"]["uncovered_length"] == 0))))
+                                                                   lambda r: r["stats"]["uncovered_length"] == 0))))
     pf_completed_names = list(set(get_names(get_results_where(pf_results,
-                                                     lambda r: r["stats"]["uncovered_length"] == 0))))
+                                                              lambda r: r["stats"]["uncovered_length"] == 0))))
+    planner_completed_names.remove("ahead_short")
+    pf_completed_names.remove("ahead_short")
+
     planner_completed_names.sort()
     pf_completed_names.sort()
 
@@ -32,6 +36,11 @@ if __name__ == "__main__":
 
     planner_results = remove_not_finished(planner_results)
     pf_results = remove_not_finished(pf_results)
+
+    # print len(planner_results)
+    planner_results = get_results_where(planner_results, lambda r: r["name"] != "ahead_short")
+    pf_results = get_results_where(pf_results, lambda r: r["name"] != "ahead_short")
+    # print len(planner_results)
 
     # for l in [all_names, planner_completed_counts_list, pf_completed_counts_list]:
     #     print ''.join(map(str, [str(x) + " & " for x in l])), "\\\\"
@@ -59,11 +68,11 @@ if __name__ == "__main__":
     #     print name, max, median, min
 
     path = "../plots/pf_vs_planner/pf_vs_planner_score.pdf"
-    title = "Potential Fields vs Planner in Small Instances"
+    title = "Potential Field vs Planner in Small Instances"
     y_label = "Median Score"
     x_label = "Test Name"
     label1 = "Planner"
-    label2 = "Potential Fields"
+    label2 = "Potential Field"
     # plot_side_by_side_bar_chart(path, planner_median_scores, pf_median_scores, pf_completed_names, title, y_label,
     #                             x_label, label1, label2, 'log')
 
@@ -82,21 +91,39 @@ if __name__ == "__main__":
     print pf_achievable_fractions
 
     path = "../plots/pf_vs_planner/pf_vs_planner_achievable.pdf"
-    title = "Potential Fields vs Planner Achievable Plan Percentage"
+    title = "Potential Field vs Planner Achievable Plan Percentage"
     y_label = "Achievable Plans (%)"
     x_label = "Test Name"
     label1 = "Planner"
-    label2 = "Potential Fields"
+    label2 = "Potential Field"
     # plot_side_by_side_bar_chart(path, planner_achievable_fractions, pf_achievable_fractions, all_names, title, y_label,
     #                             x_label, label1, label2, 'linear')
 
     # okay now for long tests
-    pf_results = load_all_results("../pf_long_tests/")
-    planner_results = load_all_results("../planner_long_tests/")
+    results = load_all_results("../pf_vs_planner_2")
+    renaming = {
+        "a": "b",
+        "b": "c",
+        "c": "d",
+        "d": "e",
+        "g": "a",
+    }
+
+    for result in results:
+        for x, y in renaming.items():
+            if x in result["name"]:
+                result["name"] = result["name"].replace(x, y)
+                break
+    pf_results = get_results_with_specific_config_value(results, "planner_config", "use_potential_fields_planner", True)
+    planner_results = get_results_with_specific_config_value(results, "planner_config", "use_potential_fields_planner",
+                                                             False)
+    # pf_results = load_all_results("../pf_long_tests/")
+    # planner_results = load_all_results("../planner_long_tests/")
 
     print len(pf_results), len(planner_results)
-    all_names = list(set(get_names(planner_results)))
+    all_names = list(set(get_names(results)))
     all_names.sort()
+    print all_names
 
     # remove run aground
     aground_names = get_names(get_results_where(pf_results, run_aground))
@@ -116,16 +143,19 @@ if __name__ == "__main__":
 
     # generate plot
     path = "../plots/pf_vs_planner/pf_vs_planner_long_tests_score.pdf"
-    title = "Potential Fields vs Planner in Larger Instances"
+    title = "Potential Field vs Planner in Larger Instances"
     y_label = "Score"
     x_label = "Test Name"
     label1 = "Planner"
-    label2 = "Potential Fields"
+    label2 = "Potential Field"
     # plot_side_by_side_bar_chart(path, planner_scores, pf_scores, all_names, title, y_label, x_label, label1, label2,
     #                             'log')
 
+    pepperrell_cove_results = load_all_results("../pepperrell_cove")
+    print "Pepperrell Cove scores (planner, pf):", get_scores(pepperrell_cove_results)
+
     # table = plt.table(cellText=[planner_completed_counts_list, pf_completed_counts_list],
-    #                   rowLabels=["Planner", "Potential Fields"],
+    #                   rowLabels=["Planner", "Potential Field"],
     #                   colLabels=all_names)
     #
     # table.set_fontsize(24)
@@ -142,7 +172,7 @@ if __name__ == "__main__":
     #     fig = plt.figure()
     #     ax = fig.add_subplot(111)
     #     col_labels = all_names[:7]
-    #     row_labels = ["Planner", "Potential Fields"]
+    #     row_labels = ["Planner", "Potential Field"]
     #     table_vals = [planner_completed_counts_list[:7], pf_completed_counts_list[:7]]
     #
     #     # Draw table
@@ -170,7 +200,7 @@ if __name__ == "__main__":
     #     fig = plt.figure()
     #     ax = fig.add_subplot(111)
     #     col_labels = all_names[7:13]
-    #     row_labels = ["Planner", "Potential Fields"]
+    #     row_labels = ["Planner", "Potential Field"]
     #     table_vals = [planner_completed_counts_list[7:13], pf_completed_counts_list[7:13]]
     #
     #     # Draw table
@@ -198,7 +228,7 @@ if __name__ == "__main__":
     #     fig = plt.figure()
     #     ax = fig.add_subplot(111)
     #     col_labels = all_names[13:]
-    #     row_labels = ["Planner", "Potential Fields"]
+    #     row_labels = ["Planner", "Potential Field"]
     #     table_vals = [planner_completed_counts_list[13:], pf_completed_counts_list[13:]]
     #
     #     # Draw table
