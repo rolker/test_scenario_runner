@@ -221,7 +221,7 @@ class TestScenarioRunner:
             "heuristic": 0,
             "dynamic_obstacles": 0,
             "ignore_dynamic_obstacles": False,
-            "use_potential_fields_planner": False,
+            "planner": 0,
         }
         self.default_mpc_config = {
             "rudder_granularity": 0.0625,
