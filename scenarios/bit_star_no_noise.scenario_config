@@ -21,7 +21,7 @@ distance_weight 1.0
 heading_weight 20.0
 speed_weight 5.0
 achievable_threshold 15.0
-current_estimation True
+current_estimation False
 current_speed 0.0
 current_direction 0.0
 jitter_thrust 0.0
