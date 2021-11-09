@@ -86,15 +86,15 @@ class TestScenarioRunner:
                  # ["/clock_factor", _type],
                  # ["/cmd_vel", _type],
                  # ["/cmg", _type],
-                 ["/contact", Contact],
+                 ["contact", Contact],
                  # ["/controller_msgs", _type],
                  # ["/coverage", _type],
                  # ["/diagnostics", _type],
                  # ["/disturbance_estimate", _type],
                  # ["/flir_engine", _type],
-                 ["/heading", NavEulerStamped],
+                 ["heading", NavEulerStamped],
                  # ["/heartbeat", _type],
-                 ["/helm", Helm],
+                 ["helm", Helm],
                  # ["/hover_action/cancel", _type],
                  # ["/hover_action/feedback", _type],
                  # ["/hover_action/goal", _type],
@@ -111,7 +111,7 @@ class TestScenarioRunner:
                  # ["/mission_manager/smach/container_status", _type],
                  # ["/mission_manager/smach/container_structure", _type],
                  # ["/mission_plan", _type],
-                 ["/mpc/disturbance_estimate", Vector3],
+                 ["mpc/disturbance_estimate", Vector3],
                  # ["/mpc/parameter_descriptions", _type],
                  # ["/mpc/parameter_updates", _type],
                  # ["/mpc/reference_trajectory", _type],
@@ -124,21 +124,21 @@ class TestScenarioRunner:
                  # ["/path_follower_action/status", _type],
                  # ["/path_planner/parameter_descriptions", _type],
                  # ["/path_planner/parameter_updates", _type],
-                 ["/path_planner/stats", Stats],
-                 ["/path_planner/task_level_stats", TaskLevelStats],
+                 ["path_planner/stats", Stats],
+                 ["path_planner/task_level_stats", TaskLevelStats],
                  # ["/path_planner_action/cancel", _type],
                  # ["/path_planner_action/feedback", _type],
                  # ["/path_planner_action/goal", _type],
                  # ["/path_planner_action/result", _type],
                  # ["/path_planner_action/status", _type],
-                 ["/position", GeoPointStamped],
-                 ["/position_map", PoseStamped],
+                 ["position", GeoPointStamped],
+                 ["position_map", PoseStamped],
                  # ["/posmv/orientation", _type],
                  # ["/posmv/position", _type],
                  # ["/project11/command", _type],
                  # ["/project11/desired_heading", _type],
                  # ["/project11/desired_speed", _type],
-                 ["/project11/display", GeoVizItem],
+                 ["project11/display", GeoVizItem],
                  # ["/project11/mission_manager/command", _type],
                  # ["/project11/mission_manager/status", _type],
                  # ["/project11/piloting_mode", _type],
@@ -152,7 +152,7 @@ class TestScenarioRunner:
                  # ["/rosout_agg", _type],
                  # ["/send_command", _type],
                  # ["/sim_reset", _type],
-                 ["/sog", TwistStamped],
+                 ["sog", TwistStamped],
                  # ["/speed_modulation", _type],
                  # ["/survey_area_action/cancel", _type],
                  # ["/survey_area_action/feedback", _type],
@@ -253,7 +253,13 @@ class TestScenarioRunner:
         ps.point.x = x
         ps.point.y = y
         ps.header.frame_id = self.map_frame
-        return self.earth_transforms.pointToGeoPoint(ps).position
+        p = None
+        while p is None:
+            p = self.earth_transforms.pointToGeoPoint(ps)
+            if p is None:
+                print('did not convert point, trying again...')
+                rospy.sleep(0.5)
+        return p.position
 
     def convert_line(self, line):
         print("Converting line", line)
