@@ -10,13 +10,13 @@ from std_msgs.msg import Bool, String, Header
 from marine_msgs.msg import Contact, NavEulerStamped, Helm
 from geometry_msgs.msg import PointStamped, TwistStamped, Vector3, PoseStamped
 from geographic_msgs.msg import GeoPoseStamped, GeoPointStamped
-from project11_transformations.srv import MapToLatLong
 from geographic_visualization_msgs.msg import GeoVizItem, GeoVizPointList, GeoVizPolygon, GeoVizSimplePolygon
 from asv_sim.srv import SetPose
 import actionlib
 import path_planner.msg
 from path_planner_common.msg import Stats, TaskLevelStats
 from threading import Lock
+import project11
 
 
 class TestScenarioRunner:
@@ -63,14 +63,14 @@ class TestScenarioRunner:
         self.write_bags = True
         self.bag_lock = Lock()
         rospy.init_node('test_scenario_runner')
-        self.reset_publisher = rospy.Publisher('/sim_reset', Bool, queue_size=5, latch=True)
-        self.piloting_mode_publisher = rospy.Publisher('/project11/piloting_mode', String, queue_size=5, latch=True)
+        self.reset_publisher = rospy.Publisher('sim_reset', Bool, queue_size=5, latch=True)
+        self.piloting_mode_publisher = rospy.Publisher('project11/piloting_mode', String, queue_size=5, latch=True)
         # self.send_command_publisher = rospy.Publisher('/send_command', String, queue_size=5, latch=True)
-        self.contact_publisher = rospy.Publisher('/contact', Contact, queue_size=5)
-        self.display_publisher = rospy.Publisher('/project11/display', GeoVizItem, queue_size=10, latch=True)
+        self.contact_publisher = rospy.Publisher('contact', Contact, queue_size=5)
+        self.display_publisher = rospy.Publisher('project11/display', GeoVizItem, queue_size=10, latch=True)
 
-        self.stats_subscriber = rospy.Subscriber('/path_planner/stats', Stats, self.stats_callback)
-        self.task_level_stats_subscriber = rospy.Subscriber('/path_planner/task_level_stats', TaskLevelStats,
+        self.stats_subscriber = rospy.Subscriber('path_planner/stats', Stats, self.stats_callback)
+        self.task_level_stats_subscriber = rospy.Subscriber('path_planner/task_level_stats', TaskLevelStats,
                                                             self.task_level_stats_callback)
         # bagging subs
         # uncomment lines to record more topics (and replace _type with the message type... I'm writing those in lazily)
@@ -188,7 +188,9 @@ class TestScenarioRunner:
             rospy.Subscriber(topic[0], topic[1], self.get_bagging_callback(topic[0]), queue_size=10) for topic in topics
         ]
 
-        self.map_to_lat_long = rospy.ServiceProxy('map_to_wgs84', MapToLatLong)
+        #self.map_to_lat_long = rospy.ServiceProxy('map_to_wgs84', MapToLatLong)
+        self.map_frame = 'ben/map'
+        self.earth_transforms = project11.nav.EarthTransforms(map_frame=self.map_frame)
         self.set_pose = rospy.ServiceProxy('set_pose', SetPose)
 
         self.path_planner_client = actionlib.SimpleActionClient('path_planner_action',
@@ -250,7 +252,8 @@ class TestScenarioRunner:
         ps = PointStamped()
         ps.point.x = x
         ps.point.y = y
-        return self.map_to_lat_long(ps).wgs84.position
+        ps.header.frame_id = self.map_frame
+        return self.earth_transforms.pointToGeoPoint(ps).position
 
     def convert_line(self, line):
         print("Converting line", line)
@@ -596,7 +599,7 @@ if __name__ == '__main__':
     try:
         while True:
             try:
-                filename = raw_input("Enter a scenario filename to run a test, or 'done' to exit:\n")
+                filename = input("Enter a scenario filename to run a test, or 'done' to exit:\n")
             except EOFError:
                 break
             rospy.sleep(0.1)
