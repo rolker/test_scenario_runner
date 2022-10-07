@@ -14,7 +14,7 @@ from geographic_visualization_msgs.msg import GeoVizItem, GeoVizPointList, GeoVi
 from asv_sim.srv import SetPose
 import actionlib
 import path_planner.msg
-from path_planner_common.msg import Stats, TaskLevelStats
+from alex_path_planner_common.msg import Stats, TaskLevelStats
 from threading import Lock
 import project11
 
