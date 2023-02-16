@@ -4,7 +4,7 @@ project(test_scenario_runner)
 find_package(catkin REQUIRED COMPONENTS
         geometry_msgs
         geographic_msgs
-        marine_msgs
+        project11_msgs
         rospy
         )
 
